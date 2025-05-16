@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+  
+<head>
+  <title>Amazonia</title>
+  <script src="https://amazonia-dev-ed.develop.my.site.com/amazonia/lightning/lightning.out.js"></script>
+</head>
+  
+<body>
+  <h1>Amazonia</h1>
+  <h4>(An escape "room" game)</h4>
+
+  <div id="lightningLocator"></div>
+
+  <script>
+  $Lightning.use(
+    "c:amazoniaLightningOut",
+    function () {
+      // Callback once framework and app loaded
+      $Lightning.createComponent(
+        "c:amazoniaComponent", // top-level component of the app
+        {}, // attributes to set on the component when created
+        "lightningLocator", // the DOM location to insert the component
+        function (cmp) {
+          // callback when component is created and active on the page
+        },
+      );
+    },
+    "https://amazonia-dev-ed.develop.my.site.com/amazonia",
+  );
+</script>
+  
+  
+</body>
+
+</html>
