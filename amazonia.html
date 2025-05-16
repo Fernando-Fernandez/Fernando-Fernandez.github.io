@@ -22,7 +22,8 @@
         {}, // attributes to set on the component when created
         "lightningLocator", // the DOM location to insert the component
         function (cmp) {
-          // callback when component is created and active on the page
+          // callback runs when component is created and active
+          console.log('The component was created.');
         },
       );
     },
