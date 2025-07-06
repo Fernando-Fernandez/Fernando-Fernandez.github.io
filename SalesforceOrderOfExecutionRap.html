@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salesforce Order of Execution Rap</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #0a0a0a;
+            color: #fff;
+            font-family: 'Arial Black', sans-serif;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        @keyframes lightningFlash {
+            0% { background: #0a0a0a; }
+            5% { background: #ffffff; }
+            10% { background: #ff0000; }
+            15% { background: #ffffff; }
+            20% { background: #ff3333; }
+            40% { background: #330000; }
+            100% { background: #0a0a0a; }
+        }
+
+        body.error-active {
+            animation: lightningFlash 0.5s ease-out;
+        }
+
+        #header-container {
+            position: absolute;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            animation: titlePulse 2s ease-in-out infinite;
+        }
+
+        @keyframes titlePulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        #lyrics-container {
+            position: relative;
+            width: 90%;
+            max-width: 800px;
+            height: 80vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        @keyframes shakeAll {
+            0%, 100% { transform: translateX(0); }
+            10% { transform: translateX(-15px); }
+            20% { transform: translateX(15px); }
+            30% { transform: translateX(-10px); }
+            40% { transform: translateX(10px); }
+            50% { transform: translateX(-5px); }
+            60% { transform: translateX(5px); }
+        }
+        #lyrics-container.shake-all {
+            animation: shakeAll 0.5s ease-out;
+        }
+        /* override individual animations during shake */
+        #lyrics-container.shake-all .lyric-line {
+            animation: none !important;
+        }
+
+        .lyric-line {
+            position: absolute;
+            font-size: 28px;
+            font-weight: bold;
+            text-align: center;
+            opacity: 0;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8),
+                         0 0 20px rgba(0, 255, 255, 0.6),
+                         0 0 30px rgba(0, 255, 255, 0.4);
+            transition: all 0.5s ease-out;
+        }
+
+        .lyric-line.current {
+            transform: translateY(0);
+            opacity: 1;
+            font-size: 28px;
+            animation: glow 1s ease-in-out infinite;
+        }
+
+        .lyric-line.history-1 {
+            transform: translateY(-60px);
+            opacity: 0.7;
+            font-size: 24px;
+        }
+
+        .lyric-line.history-2 {
+            transform: translateY(-110px);
+            opacity: 0.5;
+            font-size: 20px;
+        }
+
+        .lyric-line.history-3 {
+            transform: translateY(-155px);
+            opacity: 0.3;
+            font-size: 18px;
+        }
+
+        .lyric-line.history-4 {
+            transform: translateY(-195px);
+            opacity: 0.2;
+            font-size: 16px;
+        }
+
+        .lyric-line.history-5 {
+            transform: translateY(-230px);
+            opacity: 0.1;
+            font-size: 14px;
+        }
+
+        .lyric-line.entering {
+            transform: translateY(100px);
+            opacity: 0;
+        }
+
+        @keyframes glow {
+            0%, 100% {
+                filter: brightness(1) drop-shadow(0 0 10px rgba(0, 255, 255, 0.8));
+            }
+            50% {
+                filter: brightness(1.2) drop-shadow(0 0 20px rgba(0, 255, 255, 1));
+            }
+        }
+
+        #controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #1a1a1a;
+            color: #0ff;
+            border: 2px solid #0ff;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #0ff;
+            color: #000;
+            box-shadow: 0 0 20px #0ff;
+        }
+
+        audio {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="header-container">
+        <h1>🔊 The Salesforce Flow (Order of Execution Rap) 🔉</h1>
+    </div>
+
+    <div id="lyrics-container"></div>
+    
+    <div id="controls">
+        <audio id="rap-audio" controls>
+            <source src="./SalesforceOrderOfExecutionRap/Trigger order of execution by Claude rev2.mp3" type="audio/mpeg">
+            Your browser does not support the audio element.
+        </audio>
+        <button onclick="startAnimation()">Start</button>
+        <button onclick="pauseAnimation()">Pause</button>
+        <button onclick="resetAnimation()">Reset</button>
+    </div>
+
+    <script>
+        const lyrics = [
+            { verse: "Step 1 - Load the record from the database first", hasError: false, timing: 10000 },
+            { verse: "Step 2 - New values overwrite, that's how it works", hasError: false, timing: 12000 },
+            { verse: "Step 3 - Before-save flows execute their mission", hasError: false, timing: 15000 },
+            { verse: "Step 4 - Before-triggers fire with precision", hasError: false, timing: 18000 },
+            { verse: "Step 5 - System validation runs again", hasError: false, timing: 20000 },
+            { verse: "Required fields and custom rules maintain", hasError: false, timing: 22000 },
+            { verse: "", hasError: false, timing: 24000 },
+            { verse: "Twenty steps in order, gotta know the flow", hasError: false, timing: 25000 },
+            { verse: "From load to commit, here's how records go", hasError: false, timing: 27000 },
+            { verse: "Save it to your memory, keep it in your brain", hasError: false, timing: 30000 },
+            { verse: "Salesforce execution, running through the chain", hasError: false, timing: 32000 },
+            { verse: "Step 6 - Duplicate rules check what's fake", hasError: false, timing: 35500 },
+            { verse: "Step 7 - Save to database but don't commit the take", hasError: false, timing: 37000 },
+            { verse: "Step 8 - After triggers fire their shot", hasError: false, timing: 40000 },
+            { verse: "Step 9 - Assignment rules assign the lot", hasError: false, timing: 42500 },
+            { verse: "Step 10 - Auto-response, automatic reply (⚠️ 💣 missing verse! 💣 ⚠️)", hasError: true, timing: 44500 },
+            { verse: "Step 11 - Workflow rules, if updates apply", hasError: true, timing: 46000 },
+            { verse: "Run validation, triggers fire once more", hasError: false, timing: 48000 },
+            { verse: "Step 12 - Escalation rules escalate", hasError: false, timing: 49500 },
+            { verse: "Step 13 - Process Builder flows activate", hasError: false, timing: 52500 },
+            { verse: "Step 14 - After-save flows do their thing", hasError: true, timing: 55000 },
+            { verse: "Step 15 - Entitlements start processing", hasError: true, timing: 57500 },
+            { verse: "Step 16 - Roll-up summaries calculate", hasError: true, timing: 60000 },
+            { verse: "Step 17 - Grandparent records update their state", hasError: false, timing: 62000 },
+            { verse: "Step 18 - Sharing rules evaluate who sees", hasError: false, timing: 64500 },
+            { verse: "Step 19 - Commit to database, DML freeze", hasError: false, timing: 67500 },
+            { verse: "Step 20 - Post-commit logic at the end", hasError: false, timing: 70000 },
+            { verse: "Emails, async jobs, the flow transcends", hasError: false, timing: 71500 },
+            { verse: "From load to commit, twenty steps complete", hasError: false, timing: 75000 },
+            { verse: "Salesforce execution, now you got the beat!", hasError: false, timing: 77000 },
+        ];
+
+        let currentIndex = 0;
+        let timeouts = [];
+        let isPaused = false;
+        let pauseTime = 0;
+        let startTime = 0;
+        let activeLyrics = [];
+        const audio = document.getElementById('rap-audio');
+        const container = document.getElementById('lyrics-container');
+
+        function showLyric(lyricObj) {
+            const { verse, hasError } = lyricObj;
+
+            // move lyrics up in the history array
+            activeLyrics.forEach((lyric, index) => {
+                lyric.classList.remove('current', 'history-1', 'history-2', 'history-3', 'history-4', 'history-5', 'entering');
+                const historyClass = `history-${index + 1}`;
+                if (index < 5) {
+                    lyric.classList.add(historyClass);
+                } else {
+                    // Remove lyrics that are too far in history
+                    lyric.remove();
+                }
+            });
+
+            // remove lyrics that are too old from the array
+            activeLyrics = activeLyrics.filter((lyric, index) => index < 5);
+
+            // create new lyric element
+            const lyricElement = document.createElement('div');
+            lyricElement.className = 'lyric-line entering';
+            lyricElement.textContent = verse;
+            container.appendChild(lyricElement);
+
+            // force browser to apply the entering state
+            lyricElement.offsetHeight;
+
+            // transition to current state
+            lyricElement.classList.remove('entering');
+            lyricElement.classList.add('current');
+
+            // add to beginning of active lyrics array
+            activeLyrics.unshift(lyricElement);
+
+            // if this lyric has an error, trigger the warning effects
+            if (hasError) {
+                container.classList.add('shake-all');
+                document.body.classList.add('error-active');
+                
+                setTimeout(() => {
+                    container.classList.remove('shake-all');
+                    document.body.classList.remove('error-active');
+                    const current = document.querySelector('.lyric-line.current');
+                    if (current) {
+                        current.style.animation = 'glow 1s ease-in-out infinite';
+                    }
+                }, 500);
+            }
+        }
+
+        function startAnimation() {
+            if (isPaused) {
+                audio.play();
+                isPaused = false;
+                startTime = Date.now() - pauseTime;
+                scheduleLyricsFromIndex(currentIndex);
+                return;
+            }
+
+            audio.play();
+            currentIndex = 0;
+            startTime = Date.now();
+            
+            // clear any existing timeouts
+            timeouts.forEach(timeout => clearTimeout(timeout));
+            timeouts = [];
+            container.innerHTML = '';
+
+            // schedule all lyrics based on timings
+            scheduleLyricsFromIndex(0);
+        }
+
+        function scheduleWarningEffects() {
+            const timeout = setTimeout(() => {
+                // Lightning flash on body
+                document.body.classList.add('error-active');
+            }, delay);
+            timeouts.push(timeout);
+        }
+
+        function scheduleLyricsFromIndex(startIndex) {
+            for (let i = startIndex; i < lyrics.length; i++) {
+                const delay = lyrics[i].timing - (Date.now() - startTime);
+                if (delay > 0) {
+                    const timeout = setTimeout(() => {
+                        showLyric(lyrics[i]);
+                        currentIndex = i + 1;
+                    }, delay);
+                    timeouts.push(timeout);
+                }
+            }
+        }
+
+        function pauseAnimation() {
+            audio.pause();
+            timeouts.forEach(timeout => clearTimeout(timeout));
+            timeouts = [];
+            pauseTime = Date.now() - startTime;
+            isPaused = true;
+        }
+
+        function resetAnimation() {
+            audio.pause();
+            audio.currentTime = 0;
+            timeouts.forEach(timeout => clearTimeout(timeout));
+            timeouts = [];
+            container.innerHTML = '';
+            activeLyrics = [];
+            currentIndex = 0;
+            pauseTime = 0;
+            startTime = 0;
+            isPaused = false;
+        }
+
+        // make audio controls visible for manual control
+        audio.style.display = 'block';
+    </script>
+</body>
+</html>
