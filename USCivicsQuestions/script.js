@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const prevBtn = document.getElementById('prev-btn');
     const nextBtn = document.getElementById('next-btn');
     const progressTextEl = document.getElementById('progress-text');
+    const quizModeLinkEl = document.getElementById('quiz-mode-link');
 
     // State
     let questions = [];
@@ -31,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
             orderRand: 'Random',
             prevBtn: 'Previous',
             nextBtn: 'Next',
+            quizModeLink: 'Try Quiz Mode →',
             noQuestions: 'No questions loaded.',
             loadingError: (fileName) => `Error loading questions. Please make sure the file '${fileName}' is in the correct directory.`
         },
@@ -42,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
             orderRand: 'Aleatório',
             prevBtn: 'Anterior',
             nextBtn: 'Próximo',
+            quizModeLink: 'Experimentar Modo Quiz →',
             noQuestions: 'Nenhuma questão carregada.',
             loadingError: (fileName) => `Erro ao carregar as questões. Por favor, verifique se o ficheiro '${fileName}' está no diretório correto.`
         }
@@ -56,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
         orderRandBtn.textContent = t.orderRand;
         prevBtn.textContent = t.prevBtn;
         nextBtn.textContent = t.nextBtn;
+        quizModeLinkEl.textContent = t.quizModeLink;
     }
 
     // --- Data Loading and Parsing ---
@@ -86,9 +90,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (match) {
                     const id = parseInt(match[1], 10);
                     const question = match[2];
-                    const answer = lines[i + 1] ? lines[i + 1].trim() : 'No answer found.';
+                    
+                    // Collect all answer lines that start with ▪
+                    const answerLines = [];
+                    let j = i + 1;
+                    while (j < lines.length) {
+                        const answerLine = lines[j].trim();
+                        if (answerLine.startsWith('▪')) {
+                            answerLines.push(answerLine);
+                            j++;
+                        } else if (answerLine === '') {
+                            j++;
+                        } else {
+                            break;
+                        }
+                    }
+                    
+                    const answer = answerLines.length > 0 ? answerLines.join('\n') : 'No answer found.';
                     parsedQuestions.push({ id, question, answer });
-                    i += 2;
+                    i = j;
                 } else {
                     i++;
                 }

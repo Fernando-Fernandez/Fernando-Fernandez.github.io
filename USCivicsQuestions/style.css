@@ -132,3 +132,24 @@ button.active {
     font-size: 1rem;
     color: #555;
 }
+
+.mode-switch {
+    margin-top: 1.5rem;
+    text-align: center;
+}
+
+.mode-switch a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: bold;
+    padding: 0.75rem 1.5rem;
+    border: 2px solid var(--primary-color);
+    border-radius: 5px;
+    display: inline-block;
+    transition: all 0.2s ease;
+}
+
+.mode-switch a:hover {
+    background-color: var(--primary-color);
+    color: white;
+}
