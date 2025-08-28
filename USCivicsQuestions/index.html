@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>US Civics Questions</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1 id="main-title">US Civics Questions</h1>
+        <div class="controls">
+            <div class="control-group">
+                <label id="lang-label">Language:</label>
+                <button id="lang-en" class="active">English</button>
+                <button id="lang-pt">Português</button>
+            </div>
+            <div class="control-group">
+                <label id="order-label">Order:</label>
+                <button id="order-seq" class="active">Sequential</button>
+                <button id="order-rand">Random</button>
+            </div>
+        </div>
+
+        <div class="card-container">
+            <div id="card" class="card">
+                <div class="card-front">
+                    <p id="question-number" class="question-number"></p>
+                    <p id="question-text"></p>
+                </div>
+                <div class="card-back">
+                    <p id="answer-text"></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <button id="prev-btn">Previous</button>
+            <p id="progress-text"></p>
+            <button id="next-btn">Next</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
