@@ -32,7 +32,7 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1500px;
             margin: 0 auto;
             padding: 0 20px;
         }
@@ -50,7 +50,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 1rem 0;
+            padding: .5rem 0;
         }
 
         .logo {
@@ -81,7 +81,7 @@
         .hero {
             background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
             color: white;
-            padding: 3rem 0;
+            padding: .5rem 0;
             text-align: center;
         }
 
@@ -109,7 +109,7 @@
 
         /* Projects Section */
         .projects {
-            padding: 3rem 0;
+            padding: .5rem 0;
             background: var(--surface);
         }
 
@@ -130,15 +130,21 @@
 
         .projects-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 1.5rem;
             margin-top: 1.5rem;
+        }
+
+        .project-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
         }
 
         .project-card {
             background: var(--background);
             border-radius: 12px;
-            padding: 1.5rem;
+            padding: 1rem;
             box-shadow: 0 4px 6px -1px var(--shadow);
             border: 1px solid var(--border);
             transition: all 0.3s ease;
@@ -338,8 +344,10 @@
                 <div class="projects-grid">
                     <!-- US Civics Quiz - Featured -->
                     <div class="project-card featured">
-                        <div class="project-icon">🇺🇸</div>
-                        <h3 class="project-title">US Civics Questions</h3>
+                        <div class="project-header">
+                            <div class="project-icon">🇺🇸</div>
+                            <h3 class="project-title">US Civics Questions</h3>
+                        </div>
                         <p class="project-description">
                             Interactive study tool for the US naturalization test with 100 civics questions. Features bilingual support (English/Portuguese), flip cards mode, and multiple choice quiz with scoring.
                         </p>
@@ -357,8 +365,10 @@
 
                     <!-- Salesforce Calculator -->
                     <div class="project-card">
-                        <div class="project-icon">📊</div>
-                        <h3 class="project-title">Salesforce Certification Score Calculator</h3>
+                        <div class="project-header">
+                            <div class="project-icon">📊</div>
+                            <h3 class="project-title">Salesforce Certification Score Calculator</h3>
+                        </div>
                         <p class="project-description">
                             A handy tool for calculating Salesforce certification exam scores and tracking progress. Helps candidates understand scoring requirements and plan their preparation.
                         </p>
@@ -374,8 +384,10 @@
 
                     <!-- Salesforce Order of Execution Rap -->
                     <div class="project-card">
-                        <div class="project-icon">🎵</div>
-                        <h3 class="project-title">Salesforce Order of Execution Rap</h3>
+                        <div class="project-header">
+                            <div class="project-icon">🎵</div>
+                            <h3 class="project-title">Salesforce Order of Execution Rap</h3>
+                        </div>
                         <p class="project-description">
                             A creative musical approach to learning Salesforce's order of execution. Makes complex technical concepts memorable through rhythm and rhyme.
                         </p>
@@ -392,8 +404,10 @@
 
                     <!-- Amazonia Project -->
                     <div class="project-card">
-                        <div class="project-icon">🌿</div>
-                        <h3 class="project-title">Amazonia</h3>
+                        <div class="project-header">
+                            <div class="project-icon">🌿</div>
+                            <h3 class="project-title">Amazonia</h3>
+                        </div>
                         <p class="project-description">
                             An escape room game where you must navigate and escape from the Amazon jungle. Built entirely using Salesforce Flow with interactive decision-making and immersive jungle scenarios.
                         </p>
