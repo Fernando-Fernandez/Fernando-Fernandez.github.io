@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDFs - Fernando Fernandez</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e293b;
+            --accent-color: #f59e0b;
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --background: #ffffff;
+            --surface: #f8fafc;
+            --border: #e5e7eb;
+            --shadow: rgba(0, 0, 0, 0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background: var(--background);
+        }
+
+        .container { max-width: 1500px; margin: 0 auto; padding: 0 20px; }
+
+        .projects { padding: .5rem 0; background: var(--surface); }
+        .section-title { text-align: center; font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-primary); }
+        .section-subtitle { text-align: center; color: var(--text-secondary); font-size: 1rem; margin-bottom: 2rem; }
+
+        .projects-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 1.5rem; }
+        .project-header { display: flex; align-items: flex-start; gap: 0.75rem; }
+        .project-card { background: var(--background); border-radius: 12px; padding: 1rem; box-shadow: 0 4px 6px -1px var(--shadow); border: 1px solid var(--border); transition: all 0.3s ease; position: relative; overflow: hidden; }
+        .project-card:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px var(--shadow); }
+        .project-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--primary-color), var(--accent-color)); }
+        .project-icon { width: 50px!important; height: 50px; background: linear-gradient(135deg, var(--primary-color), var(--accent-color)); border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; font-size: 1.25rem; flex-shrink: 0; }
+        .project-title { font-size: 1.3rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-primary); }
+        .project-description { color: var(--text-secondary); margin-bottom: 1.25rem; line-height: 1.5; font-size: 0.95rem; }
+        .project-links { display: flex; gap: 1rem; }
+        .btn { padding: 0.75rem 1.5rem; border-radius: 6px; text-decoration: none; font-weight: 500; transition: all 0.2s ease; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; }
+        .btn-primary { background: var(--primary-color); color: white; }
+        .btn-primary:hover { background: #1d4ed8; transform: translateY(-1px); }
+
+        @media (max-width: 768px) {
+            .projects { padding: 2rem 0; }
+            .projects-grid { grid-template-columns: 1fr; gap: 1rem; }
+            .project-card { padding: 1.25rem; }
+        }
+    </style>
+    <link rel="icon" href="../favicon.ico">
+    <meta name="robots" content="noindex" />
+    <meta name="description" content="Reference PDFs by Fernando Fernandez" />
+    <base target="_blank" />
+    <style>
+        .topbar { background: var(--background); border-bottom: 1px solid var(--border); }
+        .topbar .wrap { display: flex; align-items: center; justify-content: space-between; padding: .75rem 0; }
+        .topbar a { color: var(--text-secondary); text-decoration: none; }
+        .topbar a:hover { color: var(--primary-color); }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <div class="container wrap">
+            <strong>PDF Library</strong>
+            <a href="../index.html" target="_self">← Back to Home</a>
+        </div>
+    </header>
+
+    <main>
+        <section id="pdfs" class="projects">
+            <div class="container">
+                <h2 class="section-title">PDFs</h2>
+                <p class="section-subtitle">Quick links to reference PDFs I've created</p>
+
+                <div class="projects-grid">
+                    <div class="project-card">
+                        <div class="project-header">
+                            <div class="project-icon">📄</div>
+                            <h3 class="project-title">Barcode Scanning LWC</h3>
+                        </div>
+                        <p class="project-description">Guide to implementing barcode scanning in a Lightning Web Component, including setup and event handling tips.</p>
+                        <div class="project-links">
+                            <a href="BarcodeScanningLWC.pdf" rel="noopener" class="btn btn-primary">View PDF</a>
+                        </div>
+                    </div>
+
+                    <div class="project-card">
+                        <div class="project-header">
+                            <div class="project-icon">📄</div>
+                            <h3 class="project-title">GIT</h3>
+                        </div>
+                        <p class="project-description">Concise Git cheat sheet covering everyday commands, branching, merging, and common workflows.</p>
+                        <div class="project-links">
+                            <a href="GIT.pdf" rel="noopener" class="btn btn-primary">View PDF</a>
+                        </div>
+                    </div>
+
+                    <div class="project-card">
+                        <div class="project-header">
+                            <div class="project-icon">📄</div>
+                            <h3 class="project-title">Getting Session Id</h3>
+                        </div>
+                        <p class="project-description">Steps to securely retrieve a Salesforce session ID for tooling, API testing, and troubleshooting.</p>
+                        <div class="project-links">
+                            <a href="GetttingSessionId.pdf" rel="noopener" class="btn btn-primary">View PDF</a>
+                        </div>
+                    </div>
+
+                    <div class="project-card">
+                        <div class="project-header">
+                            <div class="project-icon">📄</div>
+                            <h3 class="project-title">How To Debug System User</h3>
+                        </div>
+                        <p class="project-description">Techniques to debug actions performed by the Salesforce System user, with logging and trace options.</p>
+                        <div class="project-links">
+                            <a href="HowToDebugSystemUser.pdf" rel="noopener" class="btn btn-primary">View PDF</a>
+                        </div>
+                    </div>
+
+                    <div class="project-card">
+                        <div class="project-header">
+                            <div class="project-icon">📄</div>
+                            <h3 class="project-title">macOS Z Shell</h3>
+                        </div>
+                        <p class="project-description">Common zsh configurations, aliases, and command examples for efficient terminal use on macOS.</p>
+                        <div class="project-links">
+                            <a href="MacOSZShell.pdf" rel="noopener" class="btn btn-primary">View PDF</a>
+                        </div>
+                    </div>
+
+                    <div class="project-card">
+                        <div class="project-header">
+                            <div class="project-icon">📄</div>
+                            <h3 class="project-title">Salesforce CLI Cheat Sheet</h3>
+                        </div>
+                        <p class="project-description">Frequently used Salesforce CLI (sf/sfdx) commands for auth, org management, and metadata operations.</p>
+                        <div class="project-links">
+                            <a href="SalesforceCLICheatSheet.pdf" rel="noopener" class="btn btn-primary">View PDF</a>
+                        </div>
+                    </div>
+
+                    <div class="project-card">
+                        <div class="project-header">
+                            <div class="project-icon">📄</div>
+                            <h3 class="project-title">Salesforce CLI Cheat Sheet 2</h3>
+                        </div>
+                        <p class="project-description">Additional CLI recipes including data commands, packaging, permission sets, and advanced examples.</p>
+                        <div class="project-links">
+                            <a href="SalesforceCLICheatSheet2.pdf" rel="noopener" class="btn btn-primary">View PDF</a>
+                        </div>
+                    </div>
+
+                    <div class="project-card">
+                        <div class="project-header">
+                            <div class="project-icon">📄</div>
+                            <h3 class="project-title">Ten Types Of Tech Debt</h3>
+                        </div>
+                        <p class="project-description">Overview of common technical debt categories with examples and strategies for mitigation.</p>
+                        <div class="project-links">
+                            <a href="TenTypesOfTechDebt.pdf" rel="noopener" class="btn btn-primary">View PDF</a>
+                        </div>
+                    </div>
+
+                    <div class="project-card">
+                        <div class="project-header">
+                            <div class="project-icon">📄</div>
+                            <h3 class="project-title">Unable To Lock Row</h3>
+                        </div>
+                        <p class="project-description">Explanation of Salesforce UNABLE_TO_LOCK_ROW errors and practical approaches to prevent and resolve them.</p>
+                        <div class="project-links">
+                            <a href="UnableToLockRow.pdf" rel="noopener" class="btn btn-primary">View PDF</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
+
