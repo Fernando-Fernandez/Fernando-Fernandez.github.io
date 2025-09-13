@@ -19,6 +19,16 @@ const STYLE_STEP_ITEM_SIMPLE = 'margin: 5px 0; padding: 8px; background: #f9f9f9
 const STYLE_STEP_EXPR = 'font-family: monospace; font-weight: bold;';
 const STYLE_STEP_RESULT = 'font-family: monospace; color: #007cba; margin-top: 4px;';
 
+// Tree styles for hierarchical horizontal layout
+const STYLE_TREE_UL = 'list-style: none; padding-left: 0; margin: 12px 0 0 0; display: flex; flex-direction: row; gap: 18px; align-items: flex-start; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; overflow-y: visible;';
+const STYLE_TREE_CHILD_UL = 'list-style: none; padding-left: 0; margin: 8px 0 0 0; display: flex; flex-direction: row; gap: 18px; align-items: flex-start; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; overflow-y: visible;';
+const STYLE_TREE_LI = 'list-style: none; text-align: center; display: inline-flex; flex-direction: column; align-items: center;';
+const STYLE_TREE_NODE = 'display: inline-block; padding: 8px 10px; border: 1px solid #d0d7de; border-radius: 6px; background: #f9f9f9; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; white-space: normal; overflow-wrap: anywhere; word-break: break-word; max-width: 320px; box-shadow: 0 1px 0 rgba(0,0,0,0.03);';
+const STYLE_TREE_RESULT = 'display: block; margin-top: 4px; color: #007cba; font-weight: normal;';
+const STYLE_TREE_VLINE = 'width: 2px; height: 12px; background: #d0d7de; margin: 2px auto 0;';
+const STYLE_TREE_CHILD_WRAP = 'position: relative; margin-top: 6px; padding-top: 6px;';
+const STYLE_TREE_HLINE = 'position: absolute; top: 0; left: 0; right: 0; height: 1px; background: #d0d7de;';
+
 // Color constants
 const COLOR_ERROR_BG = '#ffe8e8';
 const COLOR_ERROR = '#f44336';
@@ -268,13 +278,9 @@ export default class FormulaUI {
       stepsList.id = 'stepsList';
       stepsList.style.cssText = STYLE_STEPS_LIST;
 
-      steps.forEach((step, index) => {
-        const stepDiv = doc.createElement('div');
-        stepDiv.style.cssText = STYLE_STEP_ITEM;
-        const t = (step.node && step.node.resultType) ? step.node.resultType : 'Unknown';
-        stepDiv.textContent = `${index + 1}. ${step.expression}  ->  ${t}`;
-        stepsList.appendChild(stepDiv);
-      });
+      // Build hierarchical tree from AST (no results yet)
+      const tree = this.buildAstTree(doc, ast, { includeResults: false });
+      stepsList.appendChild(tree);
 
       container.appendChild(stepsList);
     }
@@ -351,46 +357,26 @@ export default class FormulaUI {
     if (!stepsList) return;
 
     try { FormulaEngine.annotateTypes(ast, variables, types); } catch(e) {}
-    const steps = FormulaEngine.extractCalculationSteps(ast);
     stepsList.innerHTML = '';
 
+    // Rebuild hierarchical tree including computed results
+    const tree = this.buildAstTree(doc, ast, { includeResults: true, variables });
+    stepsList.appendChild(tree);
+
+    // Reflect final result (root evaluation)
     const resultDiv = doc.getElementById('calculationResult');
-    let lastResultComputed;
-
-    for (const [index, step] of steps.entries()) {
-      const stepDiv = doc.createElement('div');
-      stepDiv.style.cssText = STYLE_STEP_ITEM_SIMPLE;
-
-      const exprDiv = doc.createElement('div');
-      exprDiv.style.cssText = STYLE_STEP_EXPR;
-      const t = (step.node && step.node.resultType) ? step.node.resultType : 'Unknown';
-      exprDiv.textContent = `${index + 1}. ${step.expression}  ->  ${t}`;
-
-      const resultSpan = doc.createElement('div');
-      resultSpan.style.cssText = STYLE_STEP_RESULT;
-
-      let result;
-      try { result = FormulaEngine.calculate(step.node, variables); }
-      catch (error) { result = `Error: ${error.message}`; }
-
+    if (resultDiv) {
+      let finalResult;
+      try { finalResult = FormulaEngine.calculate(ast, variables); }
+      catch (error) { finalResult = `Error: ${error.message}`; }
       const displayResult = (
-        result === null ? 'null' :
-        FormulaEngine.isDate(result) ? result.toLocaleString() :
-        (typeof result === 'number' && result % 1 !== 0 ? result.toFixed(6) : result)
+        finalResult === null ? 'null' :
+        FormulaEngine.isDate(finalResult) ? finalResult.toLocaleString() :
+        (typeof finalResult === 'number' && finalResult % 1 !== 0 ? finalResult.toFixed(6) : finalResult)
       );
-      resultSpan.textContent = `= ${displayResult}`;
-      lastResultComputed = displayResult;
-
-      stepDiv.appendChild(exprDiv);
-      stepDiv.appendChild(resultSpan);
-      stepsList.appendChild(stepDiv);
-    }
-
-    // Reflect last step as main result
-    if (resultDiv && lastResultComputed !== undefined) {
-      resultDiv.innerHTML = `<strong>Result:</strong> ${lastResultComputed}`;
+      resultDiv.innerHTML = `<strong>Result:</strong> ${displayResult}`;
       resultDiv.style.display = 'block';
-      resultDiv.style.background = COLOR_SUCCESS;
+      resultDiv.style.background = COLOR_SUCCESS_BG;
       resultDiv.style.borderColor = COLOR_SUCCESS;
     }
   }
@@ -445,3 +431,84 @@ export default class FormulaUI {
     return out;
   }
 }
+
+// Helper: Build a nested UL/LI tree following the AST hierarchy
+// Options: { includeResults?: boolean, variables?: object }
+FormulaUI.buildAstTree = function(doc, node, options = {}) {
+  const { includeResults = false, variables = {} } = options;
+
+  const makeNodeLabel = (n) => {
+    const expr = FormulaEngine.rebuild(n);
+    const t = (n && n.resultType) ? n.resultType : 'Unknown';
+    let label = `${expr} -> ${t}`;
+    if (includeResults) {
+      let r;
+      try { r = FormulaEngine.calculate(n, variables); }
+      catch (e) { r = `Error: ${e.message}`; }
+      const display = (
+        r === null ? 'null' :
+        FormulaEngine.isDate(r) ? r.toLocaleString() :
+        (typeof r === 'number' && r % 1 !== 0 ? r.toFixed(6) : r)
+      );
+      label += `\n= ${display}`;
+    }
+    return label;
+  };
+
+  const createItem = (n, depth = 0) => {
+    const li = doc.createElement('li');
+    li.style.cssText = STYLE_TREE_LI;
+    if (depth > 0) {
+      const up = doc.createElement('div');
+      up.style.cssText = STYLE_TREE_VLINE;
+      li.appendChild(up);
+    }
+    const box = doc.createElement('div');
+    box.style.cssText = STYLE_TREE_NODE;
+    const text = doc.createElement('div');
+    text.textContent = `${FormulaEngine.rebuild(n)} -> ${(n && n.resultType) ? n.resultType : 'Unknown'}`;
+    box.appendChild(text);
+    if (includeResults) {
+      let r;
+      try { r = FormulaEngine.calculate(n, variables); } catch (e) { r = `Error: ${e.message}`; }
+      const display = (
+        r === null ? 'null' :
+        FormulaEngine.isDate(r) ? r.toLocaleString() :
+        (typeof r === 'number' && r % 1 !== 0 ? r.toFixed(6) : r)
+      );
+      const res = doc.createElement('span');
+      res.style.cssText = STYLE_TREE_RESULT;
+      res.textContent = `= ${display}`;
+      box.appendChild(res);
+    }
+    li.appendChild(box);
+
+    // Children
+    let children = [];
+    if (n && n.type === 'Function') children = n.arguments || [];
+    else if (n && n.type === 'Operator') children = [n.left, n.right].filter(Boolean);
+    if (children.length > 0) {
+      const down = doc.createElement('div');
+      down.style.cssText = STYLE_TREE_VLINE;
+      li.appendChild(down);
+
+      const wrap = doc.createElement('div');
+      wrap.style.cssText = STYLE_TREE_CHILD_WRAP;
+      const hline = doc.createElement('div');
+      hline.style.cssText = STYLE_TREE_HLINE;
+      wrap.appendChild(hline);
+
+      const ul = doc.createElement('ul');
+      ul.style.cssText = STYLE_TREE_CHILD_UL;
+      for (const c of children) ul.appendChild(createItem(c, depth + 1));
+      wrap.appendChild(ul);
+      li.appendChild(wrap);
+    }
+    return li;
+  };
+
+  const root = doc.createElement('ul');
+  root.style.cssText = STYLE_TREE_UL;
+  root.appendChild(createItem(node));
+  return root;
+};
