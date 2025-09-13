@@ -13,21 +13,16 @@ const STYLE_NOW_HELPER = 'font-size: 11px; color: #666; margin-top: 2px; margin-
 const STYLE_PRIMARY_BUTTON = 'padding: 8px 16px; background: #007cba; color: white; border: none; border-radius: 4px; cursor: pointer;';
 const STYLE_SECONDARY_BUTTON = 'padding: 8px 16px; background: #555; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 8px;';
 const STYLE_RESULT_BOX = 'margin: 10px 0; padding: 10px; background: #e8f5e8; border: 1px solid #4caf50; border-radius: 4px; display: none;';
-const STYLE_STEPS_LIST = 'margin-top: 10px;';
-const STYLE_STEP_ITEM = 'margin: 5px 0; padding: 8px; background: #f9f9f9; border-left: 3px solid #007cba; font-family: monospace;';
-const STYLE_STEP_ITEM_SIMPLE = 'margin: 5px 0; padding: 8px; background: #f9f9f9; border-left: 3px solid #007cba;';
-const STYLE_STEP_EXPR = 'font-family: monospace; font-weight: bold;';
-const STYLE_STEP_RESULT = 'font-family: monospace; color: #007cba; margin-top: 4px;';
+const STYLE_STEPS_LIST = 'margin-top: 10px; overflow-x: auto; overflow-y: visible; max-width: 100%;';
 
-// Tree styles for hierarchical horizontal layout
-const STYLE_TREE_UL = 'list-style: none; padding-left: 0; margin: 12px 0 0 0; display: flex; flex-direction: row; gap: 18px; align-items: flex-start; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; overflow-y: visible;';
-const STYLE_TREE_CHILD_UL = 'list-style: none; padding-left: 0; margin: 8px 0 0 0; display: flex; flex-direction: row; gap: 18px; align-items: flex-start; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; overflow-y: visible;';
-const STYLE_TREE_LI = 'list-style: none; text-align: center; display: inline-flex; flex-direction: column; align-items: center;';
-const STYLE_TREE_NODE = 'display: inline-block; padding: 8px 10px; border: 1px solid #d0d7de; border-radius: 6px; background: #f9f9f9; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; white-space: normal; overflow-wrap: anywhere; word-break: break-word; max-width: 320px; box-shadow: 0 1px 0 rgba(0,0,0,0.03);';
-const STYLE_TREE_RESULT = 'display: block; margin-top: 4px; color: #007cba; font-weight: normal;';
-const STYLE_TREE_VLINE = 'width: 2px; height: 12px; background: #d0d7de; margin: 2px auto 0;';
-const STYLE_TREE_CHILD_WRAP = 'position: relative; margin-top: 6px; padding-top: 6px;';
-const STYLE_TREE_HLINE = 'position: absolute; top: 0; left: 0; right: 0; height: 1px; background: #d0d7de;';
+// Tree styles for hierarchical horizontal layout (table-based)
+const STYLE_TREE_TABLE = 'border-collapse: separate;';
+const STYLE_TREE_CHILD_TABLE = 'border-collapse: separate;';
+const STYLE_TREE_TD = 'vertical-align: top;';
+const STYLE_TREE_CHILD_CONTAINER_TD = 'vertical-align: top; border-top: 1px solid #d0d7de; border-bottom: 1px solid #d0d7de; border-left: 1px solid #d0d7de;';
+const STYLE_TREE_NODE = 'display: inline-block; padding: 8px 10px; border-radius: 6px; background: #f9f9f9; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; white-space: normal; overflow-wrap: anywhere; word-break: break-word; min-width: 220px; max-width: 320px; box-shadow: 0 1px 0 rgba(0,0,0,0.03);';
+const STYLE_TREE_RESULT = 'margin-top: 4px; color: white; background-color: #007cba; font-weight: normal;';
+// (Removed line styles; tables handle layout visually)
 
 // Color constants
 const COLOR_ERROR_BG = '#ffe8e8';
@@ -432,7 +427,7 @@ export default class FormulaUI {
   }
 }
 
-// Helper: Build a nested UL/LI tree following the AST hierarchy
+// Helper: Build a nested table/td tree following the AST hierarchy
 // Options: { includeResults?: boolean, variables?: object }
 FormulaUI.buildAstTree = function(doc, node, options = {}) {
   const { includeResults = false, variables = {} } = options;
@@ -455,14 +450,8 @@ FormulaUI.buildAstTree = function(doc, node, options = {}) {
     return label;
   };
 
-  const createItem = (n, depth = 0) => {
-    const li = doc.createElement('li');
-    li.style.cssText = STYLE_TREE_LI;
-    if (depth > 0) {
-      const up = doc.createElement('div');
-      up.style.cssText = STYLE_TREE_VLINE;
-      li.appendChild(up);
-    }
+  // Create the node box element (expression, type, and optional result)
+  const createNodeBox = (n) => {
     const box = doc.createElement('div');
     box.style.cssText = STYLE_TREE_NODE;
     const text = doc.createElement('div');
@@ -481,34 +470,65 @@ FormulaUI.buildAstTree = function(doc, node, options = {}) {
       res.textContent = `= ${display}`;
       box.appendChild(res);
     }
-    li.appendChild(box);
-
-    // Children
-    let children = [];
-    if (n && n.type === 'Function') children = n.arguments || [];
-    else if (n && n.type === 'Operator') children = [n.left, n.right].filter(Boolean);
-    if (children.length > 0) {
-      const down = doc.createElement('div');
-      down.style.cssText = STYLE_TREE_VLINE;
-      li.appendChild(down);
-
-      const wrap = doc.createElement('div');
-      wrap.style.cssText = STYLE_TREE_CHILD_WRAP;
-      const hline = doc.createElement('div');
-      hline.style.cssText = STYLE_TREE_HLINE;
-      wrap.appendChild(hline);
-
-      const ul = doc.createElement('ul');
-      ul.style.cssText = STYLE_TREE_CHILD_UL;
-      for (const c of children) ul.appendChild(createItem(c, depth + 1));
-      wrap.appendChild(ul);
-      li.appendChild(wrap);
-    }
-    return li;
+    return box;
   };
 
-  const root = doc.createElement('ul');
-  root.style.cssText = STYLE_TREE_UL;
-  root.appendChild(createItem(node));
-  return root;
+  // Build a children table where each child is a separate row (TR)
+  // and each row has two columns: [child node][child's nested children table]
+  const buildChildrenTable = (parentNode) => {
+    let kids = [];
+    if (parentNode && parentNode.type === 'Function') kids = parentNode.arguments || [];
+    else if (parentNode && parentNode.type === 'Operator') kids = [parentNode.left, parentNode.right].filter(Boolean);
+    if (kids.length === 0) return null;
+
+    const tbl = doc.createElement('table');
+    tbl.style.cssText = STYLE_TREE_CHILD_TABLE;
+
+    for (const k of kids) {
+      const row = doc.createElement('tr');
+
+      const nodeCell = doc.createElement('td');
+      nodeCell.style.cssText = STYLE_TREE_TD;
+      nodeCell.appendChild(createNodeBox(k));
+
+      const sub = buildChildrenTable(k);
+
+      row.appendChild(nodeCell);
+      if (sub) {
+        const nestedCell = doc.createElement('td');
+        nestedCell.style.cssText = STYLE_TREE_CHILD_CONTAINER_TD;
+        nestedCell.appendChild(sub);
+        row.appendChild(nestedCell);
+      }
+      tbl.appendChild(row);
+    }
+
+    return tbl;
+  };
+
+  // Root table with two columns: current node and its children table
+  const createTableForNode = (n) => {
+    const table = doc.createElement('table');
+    table.style.cssText = STYLE_TREE_TABLE;
+
+    const row = doc.createElement('tr');
+
+    const nodeTd = doc.createElement('td');
+    nodeTd.style.cssText = STYLE_TREE_TD;
+    nodeTd.appendChild(createNodeBox(n));
+    row.appendChild(nodeTd);
+
+    const childrenTable = buildChildrenTable(n);
+    if (childrenTable) {
+      const childrenTd = doc.createElement('td');
+      childrenTd.style.cssText = STYLE_TREE_CHILD_CONTAINER_TD;
+      childrenTd.appendChild(childrenTable);
+      row.appendChild(childrenTd);
+    }
+
+    table.appendChild(row);
+    return table;
+  };
+
+  return createTableForNode(node);
 };
