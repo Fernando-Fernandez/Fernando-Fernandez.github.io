@@ -1,4 +1,4 @@
-import Parser from './parser.js';
+import Parser, { OPERATOR_TYPE, LITERAL_TYPE } from './parser.js';
 
 export default class FormulaEngine {
   static RESULT_TYPE = {
@@ -29,11 +29,11 @@ export default class FormulaEngine {
           if ((node.name || '').toUpperCase() === 'NOW') variables.add('NOW()');
           (node.arguments || []).forEach(traverse);
           break;
-        case 'Operator':
+        case OPERATOR_TYPE:
           traverse(node.left);
           traverse(node.right);
           break;
-        case 'Literal':
+        case LITERAL_TYPE:
           break;
         default:
           throw new Error(`Unknown AST node type: ${node.type}`);
@@ -73,7 +73,7 @@ export default class FormulaEngine {
     const errors = [];
     (function walk(node) {
       if (!node) return;
-      if (node.type === 'Operator') {
+      if (node.type === OPERATOR_TYPE) {
         if (FormulaEngine.isComparisonOperator(node.operator)) {
           const lt = node.left && node.left.resultType;
           const rt = node.right && node.right.resultType;
@@ -91,12 +91,57 @@ export default class FormulaEngine {
     return errors;
   }
 
+  // Validate arithmetic operator operand type compatibility for +, -, *, /
+  static collectArithmeticTypeErrors(ast) {
+    const errors = [];
+    const isKnown = (t) => t && t !== FormulaEngine.RESULT_TYPE.Unknown;
+    const isDateLike = (t) => t === FormulaEngine.RESULT_TYPE.Date || t === FormulaEngine.RESULT_TYPE.DateTime;
+
+    (function walk(node) {
+      if (!node) return;
+      if (node.type === OPERATOR_TYPE) {
+        const op = node.operator;
+        if (op === '+' || op === '-' || op === '*' || op === '/') {
+          const lt = node.left && node.left.resultType;
+          const rt = node.right && node.right.resultType;
+          if (isKnown(lt) && isKnown(rt)) {
+            let ok = false;
+            switch (op) {
+              case '+':
+                ok = (lt === FormulaEngine.RESULT_TYPE.Number && rt === FormulaEngine.RESULT_TYPE.Number)
+                  || (isDateLike(lt) && rt === FormulaEngine.RESULT_TYPE.Number)
+                  || (lt === FormulaEngine.RESULT_TYPE.Number && isDateLike(rt));
+                break;
+              case '-':
+                ok = (lt === FormulaEngine.RESULT_TYPE.Number && rt === FormulaEngine.RESULT_TYPE.Number)
+                  || (isDateLike(lt) && isDateLike(rt))
+                  || (isDateLike(lt) && rt === FormulaEngine.RESULT_TYPE.Number);
+                break;
+              case '*':
+              case '/':
+                ok = (lt === FormulaEngine.RESULT_TYPE.Number && rt === FormulaEngine.RESULT_TYPE.Number);
+                break;
+            }
+            if (!ok) {
+              errors.push({ operator: op, leftType: lt, rightType: rt, expression: FormulaEngine.rebuild(node) });
+            }
+          }
+        }
+        walk(node.left);
+        walk(node.right);
+      } else if (node.type === 'Function') {
+        (node.arguments || []).forEach(walk);
+      }
+    })(ast);
+    return errors;
+  }
+
   // Annotate nodes with resultType; optionally honor user-provided sample types/values
   static annotateTypes(ast, sampleVariables = {}, sampleTypes = {}) {
     const infer = (node) => {
       if (!node) return FormulaEngine.RESULT_TYPE.Unknown;
       switch (node.type) {
-        case 'Literal': {
+        case LITERAL_TYPE: {
           node.resultType = this.inferLiteralResultType(node.value);
           return node.resultType;
         }
@@ -127,7 +172,7 @@ export default class FormulaEngine {
           }
           return node.resultType;
         }
-        case 'Operator': {
+        case OPERATOR_TYPE: {
           const lt = infer(node.left);
           const rt = infer(node.right);
           switch (node.operator) {
@@ -216,14 +261,14 @@ export default class FormulaEngine {
         const args = ast.arguments.map(arg => this.rebuild(arg)).join(', ');
         return `${ast.name}(${args})`;
       }
-      case 'Operator': {
+      case OPERATOR_TYPE: {
         const left = this.rebuild(ast.left);
         const right = this.rebuild(ast.right);
         return `${left} ${ast.operator} ${right}`;
       }
       case 'Field':
         return ast.name;
-      case 'Literal':
+      case LITERAL_TYPE:
         if (ast.value === null) return 'null';
         if (typeof ast.value === 'string') return `"${ast.value}"`;
         return ast.value.toString();
@@ -336,7 +381,7 @@ export default class FormulaEngine {
             throw new Error(`This tool doesn't support the function ${ast.name}`);
         }
       }
-      case 'Operator': {
+      case OPERATOR_TYPE: {
         const left = this.calculate(ast.left, variables);
         const right = this.calculate(ast.right, variables);
         const leftDate = this.toDate(left);
@@ -395,7 +440,7 @@ export default class FormulaEngine {
         }
         return fieldValue;
       }
-      case 'Literal':
+      case LITERAL_TYPE:
         return ast.value;
       default:
         throw new Error(`Unknown AST node type: ${ast.type}`);
@@ -415,7 +460,7 @@ export default class FormulaEngine {
           if (!seen.has(expr)) { seen.add(expr); steps.push({ expression: expr, node }); }
           break;
         }
-        case 'Operator': {
+        case OPERATOR_TYPE: {
           traverse(node.left);
           traverse(node.right);
           const opExpr = FormulaEngine.rebuild(node);
@@ -423,7 +468,7 @@ export default class FormulaEngine {
           break;
         }
         case 'Field':
-        case 'Literal':
+        case LITERAL_TYPE:
           break;
         default:
           throw new Error(`Unknown AST node type: ${node.type}`);
@@ -432,4 +477,3 @@ export default class FormulaEngine {
     return steps;
   }
 }
-

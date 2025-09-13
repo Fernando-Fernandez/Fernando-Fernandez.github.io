@@ -1,8 +1,10 @@
 import Tokenizer from './tokenizer.js';
 
-const OPERATOR_TYPE = 'Operator';
-const LITERAL_TYPE = 'Literal';
-const PARENTHESIS_TYPE = 'PARENTHESIS';
+// Export shared AST/token constants here so both Parser and
+// FormulaEngine can import from a single place without an extra module.
+export const OPERATOR_TYPE = 'Operator';
+export const LITERAL_TYPE = 'Literal';
+export const PARENTHESIS_TYPE = 'PARENTHESIS';
 
 export default class Parser {
   constructor() {
