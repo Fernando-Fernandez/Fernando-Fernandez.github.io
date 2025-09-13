@@ -450,8 +450,12 @@ FormulaUI.buildAstTree = function(doc, node, options = {}) {
     return label;
   };
 
+  // Helper: determine if a node is just a literal value (not an expression)
+  const isValueNode = (n) => !!n && n.type === 'Literal';
+
   // Create the node box element (expression, type, and optional result)
   const createNodeBox = (n) => {
+    if (isValueNode(n)) return null; // Skip pure value nodes
     const box = doc.createElement('div');
     box.style.cssText = STYLE_TREE_NODE;
     const text = doc.createElement('div');
@@ -479,6 +483,8 @@ FormulaUI.buildAstTree = function(doc, node, options = {}) {
     let kids = [];
     if (parentNode && parentNode.type === 'Function') kids = parentNode.arguments || [];
     else if (parentNode && parentNode.type === 'Operator') kids = [parentNode.left, parentNode.right].filter(Boolean);
+    // Exclude pure value nodes
+    kids = kids.filter(k => !isValueNode(k));
     if (kids.length === 0) return null;
 
     const tbl = doc.createElement('table');
@@ -489,7 +495,8 @@ FormulaUI.buildAstTree = function(doc, node, options = {}) {
 
       const nodeCell = doc.createElement('td');
       nodeCell.style.cssText = STYLE_TREE_TD;
-      nodeCell.appendChild(createNodeBox(k));
+      const kBox = createNodeBox(k);
+      if (kBox) nodeCell.appendChild(kBox);
 
       const sub = buildChildrenTable(k);
 
@@ -513,10 +520,13 @@ FormulaUI.buildAstTree = function(doc, node, options = {}) {
 
     const row = doc.createElement('tr');
 
-    const nodeTd = doc.createElement('td');
-    nodeTd.style.cssText = STYLE_TREE_TD;
-    nodeTd.appendChild(createNodeBox(n));
-    row.appendChild(nodeTd);
+    const nodeBox = createNodeBox(n);
+    if (nodeBox) {
+      const nodeTd = doc.createElement('td');
+      nodeTd.style.cssText = STYLE_TREE_TD;
+      nodeTd.appendChild(nodeBox);
+      row.appendChild(nodeTd);
+    }
 
     const childrenTable = buildChildrenTable(n);
     if (childrenTable) {
@@ -526,6 +536,10 @@ FormulaUI.buildAstTree = function(doc, node, options = {}) {
       row.appendChild(childrenTd);
     }
 
+    if (row.children.length === 0) {
+      // Nothing to render for this node (likely a value-only leaf)
+      return doc.createDocumentFragment();
+    }
     table.appendChild(row);
     return table;
   };
