@@ -3,16 +3,33 @@ import FormulaUI from './formula_ui.js';
 import FormulaEngine from './formula_engine.js';
 
 (function () {
+  function getQueryParams() {
+    try {
+      return new URLSearchParams(window.location.search);
+    } catch (_) {
+      return new URLSearchParams('');
+    }
+  }
+
   function restoreSample() {
     try {
+      const params = getQueryParams();
+      // Accept either `formula` or short `f`
+      const fromUrl = params.get('formula') ?? params.get('f');
+      if (fromUrl && fromUrl.trim()) {
+        document.getElementById('CalculatedFormula').value = fromUrl;
+        return { from: 'url', auto: params.get('run') === '1' || params.get('auto') === '1' || params.get('autoplay') === '1' };
+      }
+
       const saved = localStorage.getItem('fd.formula');
-      if (saved) {
+      if (saved && saved.trim()) {
         document.getElementById('CalculatedFormula').value = saved;
-        return;
+        return { from: 'storage' };
       }
     } catch (_) {}
     // Provide a default sample for first-time use
     document.getElementById('CalculatedFormula').value = "IF((Amount + 50) >= 100, 'OK', 'NO')";
+    return { from: 'default' };
   }
 
   function saveSample() {
@@ -42,8 +59,12 @@ import FormulaEngine from './formula_engine.js';
   }
 
   window.addEventListener('DOMContentLoaded', function () {
-    restoreSample();
+    const restored = restoreSample();
     document.getElementById('analyzeBtn').addEventListener('click', analyze);
     document.getElementById('mermaidBtn').addEventListener('click', openMermaid);
+    // If formula came from URL and auto is requested, run immediately
+    if (restored && restored.from === 'url' && restored.auto) {
+      analyze();
+    }
   });
 })();
