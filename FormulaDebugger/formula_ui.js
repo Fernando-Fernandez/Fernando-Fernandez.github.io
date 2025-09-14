@@ -9,7 +9,7 @@ const STYLE_FIELD_ROW = 'display: flex; align-items: center; gap: 8px;';
 const STYLE_FIELD_LABEL = 'display: inline-block; width: 120px; font-weight: bold;';
 const STYLE_FIELD_INPUT = 'flex: 1; padding: 4px 8px; border: 1px solid #ccc; border-radius: 3px;';
 const STYLE_TYPE_SELECT = 'padding: 4px 6px; border: 1px solid #ccc; border-radius: 3px;';
-const STYLE_NOW_HELPER = 'font-size: 11px; color: #666; margin-top: 2px; margin-left: 120px;';
+const STYLE_NOW_HELPER = 'font-size: 11px; color: #666;';
 const STYLE_PRIMARY_BUTTON = 'padding: 8px 16px; background: #007cba; color: white; border: none; border-radius: 4px; cursor: pointer;';
 const STYLE_SECONDARY_BUTTON = 'padding: 8px 16px; background: #555; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 8px;';
 const STYLE_RESULT_BOX = 'margin: 10px 0; padding: 10px; background: #e8f5e8; border: 1px solid #4caf50; border-radius: 4px; display: none;';
@@ -21,7 +21,8 @@ const STYLE_TREE_CHILD_TABLE = 'border-collapse: separate;';
 const STYLE_TREE_TD = 'vertical-align: top;';
 const STYLE_TREE_CHILD_CONTAINER_TD = 'vertical-align: top; border-top: 1px solid #d0d7de; border-bottom: 1px solid #d0d7de; border-left: 1px solid #d0d7de;';
 const STYLE_TREE_NODE = 'display: inline-block; padding: 8px 10px; border-radius: 6px; background: #f9f9f9; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; white-space: normal; overflow-wrap: anywhere; word-break: break-word; min-width: 220px; max-width: 320px; box-shadow: 0 1px 0 rgba(0,0,0,0.03);';
-const STYLE_TREE_RESULT = 'margin-top: 4px; color: white; background-color: #007cba; font-weight: normal;';
+const STYLE_TREE_RESULT = 'display: inline-block; padding: 2px 6px; margin-top: 4px; color: white; background: #007cba; border-radius: 10px; font-weight: normal; line-height: 1; ';
+const STYLE_TYPE_BADGE = 'display: inline-block; padding: 2px 6px; background: #ff8c00; color: #ffffff; border-radius: 10px; font-size: 11px; line-height: 1; margin-top: 6px;';
 // (Removed line styles; tables handle layout visually)
 
 // Color constants
@@ -207,6 +208,12 @@ export default class FormulaUI {
           const now = new Date();
           const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
           input.value = localDateTime.toISOString().slice(0, 16);
+        } else if (variable === 'TODAY()') {
+          input.type = 'date';
+          input.placeholder = 'Select date for testing';
+          const now = new Date();
+          const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+          input.value = local.toISOString().slice(0, 10);
         } else {
           input.type = 'text';
           input.placeholder = `Enter value for ${variable}`;
@@ -215,7 +222,7 @@ export default class FormulaUI {
         fieldDiv.appendChild(label);
         fieldDiv.appendChild(input);
 
-        if (variable !== 'NOW()') {
+        if (variable !== 'NOW()' && variable !== 'TODAY()') {
           const typeSel = doc.createElement('select');
           typeSel.id = `type-${variable}`;
           typeSel.style.cssText = STYLE_TYPE_SELECT;
@@ -239,6 +246,11 @@ export default class FormulaUI {
           const helperText = doc.createElement('div');
           helperText.style.cssText = STYLE_NOW_HELPER;
           helperText.textContent = 'Leave empty to use current date/time';
+          fieldDiv.appendChild(helperText);
+        } else if (variable === 'TODAY()') {
+          const helperText = doc.createElement('div');
+          helperText.style.cssText = STYLE_NOW_HELPER;
+          helperText.textContent = 'Leave empty to use today\'s date';
           fieldDiv.appendChild(helperText);
         }
 
@@ -384,7 +396,7 @@ export default class FormulaUI {
       const input = doc.getElementById(`var-${variable}`);
       values[variable] = input ? (input.value || '') : '';
       const typeSel = doc.getElementById(`type-${variable}`);
-      const t = typeSel ? typeSel.value : (variable === 'NOW()' ? 'DateTime' : 'Auto');
+      const t = typeSel ? typeSel.value : (variable === 'NOW()' ? 'DateTime' : (variable === 'TODAY()' ? 'Date' : 'Auto'));
       types[variable] = t;
     });
     return { values, types };
@@ -394,7 +406,7 @@ export default class FormulaUI {
     const out = {};
     for (const [name, raw] of Object.entries(values || {})) {
       const t = (types && types[name]) || 'Auto';
-      if (name === 'NOW()') {
+      if (name === 'NOW()' || name === 'TODAY()') {
         out[name] = raw; // special handling occurs in FormulaEngine
         continue;
       }
@@ -435,7 +447,7 @@ FormulaUI.buildAstTree = function(doc, node, options = {}) {
   const makeNodeLabel = (n) => {
     const expr = FormulaEngine.rebuild(n);
     const t = (n && n.resultType) ? n.resultType : 'Unknown';
-    let label = `${expr} -> ${t}`;
+    let label = `${expr}\n${t}`;
     if (includeResults) {
       let r;
       try { r = FormulaEngine.calculate(n, variables); }
@@ -459,8 +471,15 @@ FormulaUI.buildAstTree = function(doc, node, options = {}) {
     const box = doc.createElement('div');
     box.style.cssText = STYLE_TREE_NODE;
     const text = doc.createElement('div');
-    text.textContent = `${FormulaEngine.rebuild(n)} -> ${(n && n.resultType) ? n.resultType : 'Unknown'}`;
+    text.textContent = `${FormulaEngine.rebuild(n)}`;
+
+    const typeBadge = doc.createElement('span');
+    typeBadge.style.cssText = STYLE_TYPE_BADGE;
+    typeBadge.textContent = `${(n && n.resultType) ? n.resultType : 'Unknown'}`;
+
+    box.appendChild(typeBadge);
     box.appendChild(text);
+
     if (includeResults) {
       let r;
       try { r = FormulaEngine.calculate(n, variables); } catch (e) { r = `Error: ${e.message}`; }

@@ -27,6 +27,7 @@ export default class FormulaEngine {
           break;
         case 'Function':
           if ((node.name || '').toUpperCase() === 'NOW') variables.add('NOW()');
+          if ((node.name || '').toUpperCase() === 'TODAY') variables.add('TODAY()');
           (node.arguments || []).forEach(traverse);
           break;
         case OPERATOR_TYPE:
@@ -187,6 +188,10 @@ export default class FormulaEngine {
             case '>=':
               node.resultType = FormulaEngine.RESULT_TYPE.Boolean;
               break;
+            case '&': {
+              node.resultType = this.RESULT_TYPE.Text;
+              break;
+            }
             case '+': {
               if (lt === this.RESULT_TYPE.Text || rt === this.RESULT_TYPE.Text) node.resultType = this.RESULT_TYPE.Text;
               else if (lt === this.RESULT_TYPE.Date && rt === this.RESULT_TYPE.Number) node.resultType = this.RESULT_TYPE.Date;
@@ -224,8 +229,27 @@ export default class FormulaEngine {
               node.resultType = this.RESULT_TYPE.Unknown; return node.resultType;
             case 'CONTAINS': node.resultType = this.RESULT_TYPE.Boolean; return node.resultType;
             case 'FIND':
-            case 'FLOOR': node.resultType = this.RESULT_TYPE.Number; return node.resultType;
+            case 'FLOOR':
+            case 'MOD':
+            case 'MONTH':
+            case 'DAY':
+            case 'WEEKDAY':
+            case 'HOUR':
+            case 'MINUTE':
+            case 'SECOND':
+            case 'CEILING': node.resultType = this.RESULT_TYPE.Number; return node.resultType;
+            case 'MIN':
+            case 'MAX': {
+              // If any argument is DateTime -> DateTime, else if any is Date -> Date, else Number
+              const hasDateTime = (argTypes || []).includes(this.RESULT_TYPE.DateTime);
+              const hasDate = (argTypes || []).includes(this.RESULT_TYPE.Date);
+              node.resultType = hasDateTime ? this.RESULT_TYPE.DateTime : (hasDate ? this.RESULT_TYPE.Date : this.RESULT_TYPE.Number);
+              return node.resultType;
+            }
+            case 'YEAR': node.resultType = this.RESULT_TYPE.Number; return node.resultType;
             case 'MID': node.resultType = this.RESULT_TYPE.Text; return node.resultType;
+            case 'TEXT': node.resultType = this.RESULT_TYPE.Text; return node.resultType;
+            case 'VALUE': node.resultType = this.RESULT_TYPE.Number; return node.resultType;
             case 'CASE':
               if (argTypes.length >= 3) {
                 let t = this.RESULT_TYPE.Unknown;
@@ -240,8 +264,10 @@ export default class FormulaEngine {
             case 'ISPICKVAL':
             case 'ISBLANK': node.resultType = this.RESULT_TYPE.Boolean; return node.resultType;
             case 'NOW': node.resultType = this.RESULT_TYPE.DateTime; return node.resultType;
+            case 'TODAY': node.resultType = this.RESULT_TYPE.Date; return node.resultType;
             case 'DATE':
             case 'DATEVALUE': node.resultType = this.RESULT_TYPE.Date; return node.resultType;
+            case 'ADDMONTHS': node.resultType = this.RESULT_TYPE.Date; return node.resultType;
             default: node.resultType = this.RESULT_TYPE.Unknown; return node.resultType;
           }
         }
@@ -280,18 +306,69 @@ export default class FormulaEngine {
   // Date utilities
   static toDate(value) {
     if (this.isDate(value)) return value;
-    if (this.isDateString(value)) return new Date(value);
+    if (typeof value === 'string') {
+      const s = value.trim();
+      // Handle US formats explicitly (MM/DD/YYYY [HH:mm[:ss]])
+      const usWithTime = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?$/;
+      const mTime = s.match(usWithTime);
+      if (mTime) {
+        const mm = parseInt(mTime[1], 10);
+        const dd = parseInt(mTime[2], 10);
+        const yyyy = parseInt(mTime[3], 10);
+        const HH = parseInt(mTime[4], 10);
+        const MM = parseInt(mTime[5], 10);
+        const SS = mTime[6] ? parseInt(mTime[6], 10) : 0;
+        const d = new Date(yyyy, mm - 1, dd, HH, MM, SS);
+        if (!isNaN(d.getTime())) return d;
+      }
+      const usDateOnly = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+      const mDateOnly = s.match(usDateOnly);
+      if (mDateOnly) {
+        const mm = parseInt(mDateOnly[1], 10);
+        const dd = parseInt(mDateOnly[2], 10);
+        const yyyy = parseInt(mDateOnly[3], 10);
+        const d = new Date(yyyy, mm - 1, dd);
+        if (!isNaN(d.getTime())) return d;
+      }
+      if (this.isDateString(s)) {
+        // Normalize space separator to 'T' for consistent parsing for ISO-like strings
+        const normalized = s.replace(/^(\d{4}-\d{2}-\d{2})\s+/, '$1T');
+        const d = new Date(normalized);
+        if (!isNaN(d.getTime())) return d;
+      }
+    }
     return null;
+  }
+  // Normalize a Date to ISO string without milliseconds: YYYY-MM-DDTHH:mm:ssZ
+  static toIsoZSeconds(d) {
+    if (!(d instanceof Date)) return '';
+    const iso = d.toISOString();
+    return iso.replace(/\.\d{3}Z$/, 'Z');
   }
   static isDate(value) { return value instanceof Date; }
   static isDateString(value) {
     if (typeof value !== 'string' || value.trim() === '') return false;
     const s = value.trim();
-    const isoLike = /^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?$/;
+    // Accept the following:
+    // - YYYY-MM-DDTHH:mm
+    // - YYYY-MM-DD HH:mm
+    // - YYYY-MM-DDTHH:mm:ssZ
+    // - YYYY-MM-DDTHH:mm:ss
+    // - YYYY-MM-DD HH:mm:ss
+    // - MM/DD/YYYY HH:mm
+    // - MM/DD/YYYY HH:mm:ss
+    // - MM/DD/YYYY (date only)
+    const isoBasic = /^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?$/; // with optional seconds
+    const isoWithZ = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/; // explicit Z
     const usLike = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
-    if (!(isoLike.test(s) || usLike.test(s))) return false;
-    const date = new Date(s);
-    return !isNaN(date.getTime());
+    const usWithTime = /^\d{1,2}\/\d{1,2}\/\d{4}\s+\d{2}:\d{2}(?::\d{2})?$/;
+    if (!(isoBasic.test(s) || isoWithZ.test(s) || usLike.test(s) || usWithTime.test(s))) return false;
+    // For ISO-like, normalize space to T; for US-like, leave as-is
+    const normalized = isoBasic.test(s) || isoWithZ.test(s)
+      ? s.replace(/^(\d{4}-\d{2}-\d{2})\s+/, '$1T')
+      : s;
+    const date = new Date(normalized);
+    return !isNaN(date.getTime()) || usWithTime.test(s);
   }
 
   // Evaluate AST locally with provided variables
@@ -317,12 +394,127 @@ export default class FormulaEngine {
           }
           case 'MID': {
             const midText = String(args[0] || '');
-            const start = parseInt(args[1] || 1) - 1;
-            const length = parseInt(args[2] || 0);
-            return midText.substr(start, length);
+            let startOne = parseInt(args[1] || 1, 10);
+            let length = parseInt(args[2] || 0, 10);
+            if (!Number.isFinite(startOne) || startOne < 1) startOne = 1;
+            if (!Number.isFinite(length) || length <= 0) return '';
+            const start = startOne - 1; // convert to 0-based
+            const end = start + length;
+            return midText.slice(start, end);
+          }
+          case 'TEXT': {
+            if (args.length !== 1) throw new Error('TEXT requires exactly one argument');
+            const v = args[0];
+            if (v === null || v === undefined) return '';
+            const d = this.toDate(v);
+            // Keep datetimes in normalized ISO format (no locale conversion)
+            if (d) return this.toIsoZSeconds(d);
+            return String(v);
+          }
+          case 'VALUE': {
+            if (args.length !== 1) throw new Error('VALUE requires exactly one argument');
+            const v = args[0];
+            if (typeof v === 'number') return v;
+            if (typeof v === 'boolean') return v ? 1 : 0;
+            if (v === null || v === undefined) return 0;
+            const s = String(v).trim();
+            if (s === '') return 0;
+            const n = Number(s);
+            if (!Number.isFinite(n)) throw new Error('VALUE expects a numeric text');
+            return n;
           }
           case 'FLOOR':
             return Math.floor(parseFloat(args[0]) || 0);
+          case 'MOD': {
+            if (args.length !== 2) throw new Error('MOD requires exactly two arguments: number and divisor');
+            const x = parseFloat(args[0]);
+            const y = parseFloat(args[1]);
+            const divisor = Number.isFinite(y) ? y : 0;
+            if (divisor === 0) throw new Error('Division by zero');
+            if (!Number.isFinite(x)) return 0;
+            const r = x - divisor * Math.floor(x / divisor);
+            return r;
+          }
+          case 'MONTH': {
+            if (args.length !== 1) throw new Error('MONTH requires exactly one argument');
+            const d = this.toDate(args[0]);
+            if (!d) throw new Error('MONTH expects a date-like value');
+            return d.getMonth() + 1; // 1-12
+          }
+          case 'DAY': {
+            if (args.length !== 1) throw new Error('DAY requires exactly one argument');
+            const d = this.toDate(args[0]);
+            if (!d) throw new Error('DAY expects a date-like value');
+            return d.getDate(); // 1-31
+          }
+          case 'WEEKDAY': {
+            if (args.length !== 1) throw new Error('WEEKDAY requires exactly one argument');
+            const d = this.toDate(args[0]);
+            if (!d) throw new Error('WEEKDAY expects a date-like value');
+            return d.getDay() + 1; // 1=Sunday .. 7=Saturday
+          }
+          case 'HOUR': {
+            if (args.length !== 1) throw new Error('HOUR requires exactly one argument');
+            const d = this.toDate(args[0]);
+            if (!d) throw new Error('HOUR expects a date-like value');
+            return d.getHours();
+          }
+          case 'MINUTE': {
+            if (args.length !== 1) throw new Error('MINUTE requires exactly one argument');
+            const d = this.toDate(args[0]);
+            if (!d) throw new Error('MINUTE expects a date-like value');
+            return d.getMinutes();
+          }
+          case 'SECOND': {
+            if (args.length !== 1) throw new Error('SECOND requires exactly one argument');
+            const d = this.toDate(args[0]);
+            if (!d) throw new Error('SECOND expects a date-like value');
+            return d.getSeconds();
+          }
+          case 'CEILING': {
+            if (args.length !== 1) throw new Error('CEILING requires exactly one argument');
+            const x = parseFloat(args[0]);
+            if (!Number.isFinite(x)) return 0;
+            return Math.ceil(x);
+          }
+          case 'MIN': {
+            if (args.length < 1) throw new Error('MIN requires at least one argument');
+            // Determine mode: date-like or numeric
+            const dateFlags = args.map(a => this.toDate(a));
+            const anyDate = dateFlags.some(d => !!d);
+            const allDate = dateFlags.every(d => !!d);
+            if (anyDate && !allDate) throw new Error('MIN arguments must all be date-like or all numeric');
+            if (allDate) {
+              let best = dateFlags[0];
+              for (let i = 1; i < dateFlags.length; i++) if (dateFlags[i].getTime() < best.getTime()) best = dateFlags[i];
+              return best;
+            }
+            // numeric
+            let min = Infinity;
+            for (const v of args) {
+              const n = parseFloat(v);
+              if (Number.isFinite(n) && n < min) min = n;
+            }
+            return min === Infinity ? 0 : min;
+          }
+          case 'MAX': {
+            if (args.length < 1) throw new Error('MAX requires at least one argument');
+            const dateFlags = args.map(a => this.toDate(a));
+            const anyDate = dateFlags.some(d => !!d);
+            const allDate = dateFlags.every(d => !!d);
+            if (anyDate && !allDate) throw new Error('MAX arguments must all be date-like or all numeric');
+            if (allDate) {
+              let best = dateFlags[0];
+              for (let i = 1; i < dateFlags.length; i++) if (dateFlags[i].getTime() > best.getTime()) best = dateFlags[i];
+              return best;
+            }
+            let max = -Infinity;
+            for (const v of args) {
+              const n = parseFloat(v);
+              if (Number.isFinite(n) && n > max) max = n;
+            }
+            return max === -Infinity ? 0 : max;
+          }
           case 'CASE': {
             const expr = args[0];
             for (let i = 1; i < args.length - 1; i += 2) {
@@ -355,9 +547,24 @@ export default class FormulaEngine {
               if (tv === '') return new Date();
               const pd = new Date(tv);
               if (isNaN(pd.getTime())) throw new Error('Invalid date format for NOW() test value');
-              return pd;
+              return this.toIsoZSeconds(pd);
             }
-            return new Date();
+            return this.toIsoZSeconds(new Date());
+          }
+          case 'TODAY': {
+            if (args.length !== 0) throw new Error('TODAY requires no arguments');
+            if (variables && variables['TODAY()'] !== undefined) {
+              const tv = variables['TODAY()'];
+              if (tv === '') {
+                const n = new Date();
+                return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+              }
+              const pd = new Date(tv);
+              if (isNaN(pd.getTime())) throw new Error('Invalid date format for TODAY() test value');
+              return new Date(pd.getFullYear(), pd.getMonth(), pd.getDate());
+            }
+            const n = new Date();
+            return new Date(n.getFullYear(), n.getMonth(), n.getDate());
           }
           case 'DATEVALUE': {
             if (args.length !== 1) throw new Error('DATEVALUE requires exactly one argument');
@@ -366,6 +573,12 @@ export default class FormulaEngine {
             const d = this.toDate(v);
             if (!d) throw new Error('DATEVALUE expects a date-like value');
             return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+          }
+          case 'YEAR': {
+            if (args.length !== 1) throw new Error('YEAR requires exactly one argument');
+            const d = this.toDate(args[0]);
+            if (!d) throw new Error('YEAR expects a date-like value');
+            return d.getFullYear();
           }
           case 'DATE': {
             if (args.length !== 3) throw new Error('DATE requires exactly three arguments: year, month, day');
@@ -377,8 +590,30 @@ export default class FormulaEngine {
             if (d < 1 || d > 31) throw new Error('DATE day must be between 1 and 31');
             return new Date(y, m - 1, d);
           }
+          case 'ADDMONTHS': {
+            if (args.length !== 2) throw new Error('ADDMONTHS requires exactly two arguments: date, months');
+            const base = this.toDate(args[0]);
+            if (!base) throw new Error('ADDMONTHS expects a date-like first argument');
+            const monthsNum = Number(args[1]);
+            if (!Number.isFinite(monthsNum)) throw new Error('ADDMONTHS months must be numeric');
+            const months = Math.trunc(monthsNum);
+            const y = base.getFullYear();
+            const m = base.getMonth();
+            const d = base.getDate();
+            const h = base.getHours();
+            const min = base.getMinutes();
+            const s = base.getSeconds();
+            const ms = base.getMilliseconds();
+            const totalMonths = m + months;
+            let ty = y + Math.floor(totalMonths / 12);
+            let tm = totalMonths % 12;
+            if (tm < 0) { tm += 12; ty -= 1; }
+            const daysInTargetMonth = new Date(ty, tm + 1, 0).getDate();
+            const day = Math.min(d, daysInTargetMonth);
+            return this.toIsoZSeconds(new Date(ty, tm, day, h, min, s, ms));
+          }
           default:
-            throw new Error(`This tool doesn't support the function ${ast.name}`);
+            throw new Error(`This tool doesn't yet support the function ${ast.name}`);
         }
       }
       case OPERATOR_TYPE: {
@@ -386,17 +621,36 @@ export default class FormulaEngine {
         const right = this.calculate(ast.right, variables);
         const leftDate = this.toDate(left);
         const rightDate = this.toDate(right);
+        const leftTypeHint = ast.left && ast.left.resultType;
+        const rightTypeHint = ast.right && ast.right.resultType;
         switch (ast.operator) {
-          case '+':
-            if (leftDate && typeof right === 'number') return new Date(leftDate.getTime() + (right * 86400000));
-            if (typeof left === 'number' && rightDate) return new Date(rightDate.getTime() + (left * 86400000));
+          case '&': {
+            const fmt = (v) => {
+              if (v === null || v === undefined) return '';
+              const d = this.toDate(v);
+              if (d) return d.toLocaleString();
+              return String(v);
+            };
+            return fmt(left) + fmt(right);
+          }
+          case '+': {
+            const rightNum = Number(right);
+            const leftNum = Number(left);
+            if (leftDate && Number.isFinite(rightNum)) return this.toIsoZSeconds(new Date(leftDate.getTime() + (Math.round(rightNum) * 86400000)));
+            if (rightDate && Number.isFinite(leftNum)) return this.toIsoZSeconds(new Date(rightDate.getTime() + (Math.round(leftNum) * 86400000)));
             return (parseFloat(left) || 0) + (parseFloat(right) || 0);
+          }
           case '-':
             if (leftDate && rightDate) {
               const diffMs = leftDate.getTime() - rightDate.getTime();
-              return diffMs / 86400000;
+              // If either operand is DateTime, return fractional days; if both are Date, return integer days
+              const anyDateTime = (leftTypeHint === this.RESULT_TYPE.DateTime) || (rightTypeHint === this.RESULT_TYPE.DateTime);
+              return anyDateTime ? (diffMs / 86400000) : Math.round(diffMs / 86400000);
             }
-            if (leftDate && typeof right === 'number') return new Date(leftDate.getTime() - (right * 86400000));
+            if (leftDate) {
+              const rightNum = Number(right);
+              if (Number.isFinite(rightNum)) return this.toIsoZSeconds(new Date(leftDate.getTime() - (Math.round(rightNum) * 86400000)));
+            }
             return (parseFloat(left) || 0) - (parseFloat(right) || 0);
           case '*':
             return (parseFloat(left) || 0) * (parseFloat(right) || 0);

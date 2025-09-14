@@ -8,6 +8,7 @@ export default class Tokenizer {
         [/^\/\/.*/, 'SINGLE_LINE_COMMENT'],
         [/^\/\*[\s\S]*?\*\//, 'MULTI_LINE_COMMENT'],
         [/^[+\-]/, 'ADDITIVE_OPERATOR'],
+        [/^&/, 'CONCAT'],
         [/^[*\/]/, 'MULTIPLICATIVE_OPERATOR'],
         [/^[()]/, 'PARENTHESIS'],
         [/^[{}]/, 'BRACES'],

@@ -89,7 +89,7 @@ export default class Parser {
   // Add/Subtract
   parseTerm() {
     let node = this.parseFactor();
-    while (this.peek() && (this.peek().token === '+' || this.peek().token === '-')) {
+    while (this.peek() && (this.peek().token === '+' || this.peek().token === '-' || this.peek().token === '&')) {
       const operator = this.consume().token;
       const right = this.parseFactor();
       node = { type: OPERATOR_TYPE, operator, left: node, right };
