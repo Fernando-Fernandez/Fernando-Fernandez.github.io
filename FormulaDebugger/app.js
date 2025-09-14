@@ -58,10 +58,47 @@ import FormulaEngine from './formula_engine.js';
     }
   }
 
+  function buildShareUrl(formula, { autoRun = true } = {}) {
+    const url = new URL(window.location.href);
+    // Normalize to `formula` param and drop `f` to avoid duplicates
+    url.searchParams.delete('f');
+    url.searchParams.set('formula', formula || '');
+    if (autoRun) url.searchParams.set('run', '1'); else url.searchParams.delete('run');
+    return url.toString();
+  }
+
+  async function copyShareUrl() {
+    const btn = document.getElementById('copyUrlBtn');
+    const formula = document.getElementById('CalculatedFormula').value || '';
+    const share = buildShareUrl(formula, { autoRun: true });
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(share);
+      } else {
+        // Fallback: temporary textarea
+        const ta = document.createElement('textarea');
+        ta.value = share;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'absolute';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      const original = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => (btn.textContent = original), 1200);
+    } catch (e) {
+      alert('Could not copy link: ' + (e && e.message ? e.message : e));
+    }
+  }
+
   window.addEventListener('DOMContentLoaded', function () {
     const restored = restoreSample();
     document.getElementById('analyzeBtn').addEventListener('click', analyze);
     document.getElementById('mermaidBtn').addEventListener('click', openMermaid);
+    document.getElementById('copyUrlBtn').addEventListener('click', copyShareUrl);
     // If formula came from URL and auto is requested, run immediately
     if (restored && restored.from === 'url' && restored.auto) {
       analyze();
