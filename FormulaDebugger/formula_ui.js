@@ -190,6 +190,18 @@ export default class FormulaUI {
       const varsList = doc.createElement('div');
       varsList.style.cssText = STYLE_VARS_LIST;
 
+      // Helpers to build default local ISO strings
+      const localDateISO = () => {
+        const now = new Date();
+        const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+        return local.toISOString().slice(0, 10);
+      };
+      const localDateTimeISO = () => {
+        const now = new Date();
+        const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+        return local.toISOString().slice(0, 16);
+      };
+
       variables.forEach(variable => {
         const fieldDiv = doc.createElement('div');
         fieldDiv.style.cssText = STYLE_FIELD_ROW;
@@ -205,15 +217,11 @@ export default class FormulaUI {
         if (variable === 'NOW()') {
           input.type = 'datetime-local';
           input.placeholder = 'Select date/time for testing';
-          const now = new Date();
-          const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-          input.value = localDateTime.toISOString().slice(0, 16);
+          input.value = localDateTimeISO();
         } else if (variable === 'TODAY()') {
           input.type = 'date';
           input.placeholder = 'Select date for testing';
-          const now = new Date();
-          const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-          input.value = local.toISOString().slice(0, 10);
+          input.value = localDateISO();
         } else {
           input.type = 'text';
           input.placeholder = `Enter value for ${variable}`;
@@ -239,6 +247,25 @@ export default class FormulaUI {
             op.value = o.v; op.textContent = o.t;
             typeSel.appendChild(op);
           }
+          // When user selects Date/DateTime, switch input type and set default
+          typeSel.addEventListener('change', () => {
+            const sel = typeSel.value;
+            if (sel === 'Date') {
+              input.type = 'date';
+              input.placeholder = 'Select date';
+              if (!input.value) input.value = localDateISO();
+            } else if (sel === 'DateTime') {
+              input.type = 'datetime-local';
+              input.placeholder = 'Select date/time';
+              if (!input.value) input.value = localDateTimeISO();
+            } else if (sel === 'Number') {
+              input.type = 'number';
+              input.placeholder = `Enter number for ${variable}`;
+            } else {
+              input.type = 'text';
+              input.placeholder = `Enter value for ${variable}`;
+            }
+          });
           fieldDiv.appendChild(typeSel);
         }
 
