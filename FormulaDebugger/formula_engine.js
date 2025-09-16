@@ -109,7 +109,8 @@ export default class FormulaEngine {
             let ok = false;
             switch (op) {
               case '+':
-                ok = (lt === FormulaEngine.RESULT_TYPE.Number && rt === FormulaEngine.RESULT_TYPE.Number)
+                ok = (lt === FormulaEngine.RESULT_TYPE.Text || rt === FormulaEngine.RESULT_TYPE.Text)
+                  || (lt === FormulaEngine.RESULT_TYPE.Number && rt === FormulaEngine.RESULT_TYPE.Number)
                   || (isDateLike(lt) && rt === FormulaEngine.RESULT_TYPE.Number)
                   || (lt === FormulaEngine.RESULT_TYPE.Number && isDateLike(rt));
                 break;
@@ -249,6 +250,7 @@ export default class FormulaEngine {
             case 'YEAR': node.resultType = this.RESULT_TYPE.Number; return node.resultType;
             case 'MID': node.resultType = this.RESULT_TYPE.Text; return node.resultType;
             case 'TEXT': node.resultType = this.RESULT_TYPE.Text; return node.resultType;
+            case 'LPAD': node.resultType = this.RESULT_TYPE.Text; return node.resultType;
             case 'VALUE': node.resultType = this.RESULT_TYPE.Number; return node.resultType;
             case 'CASE':
               if (argTypes.length >= 3) {
@@ -267,6 +269,8 @@ export default class FormulaEngine {
             case 'TODAY': node.resultType = this.RESULT_TYPE.Date; return node.resultType;
             case 'DATE':
             case 'DATEVALUE': node.resultType = this.RESULT_TYPE.Date; return node.resultType;
+            case 'DATETIMEVALUE': node.resultType = this.RESULT_TYPE.DateTime; return node.resultType;
+            case 'TIMEVALUE': node.resultType = this.RESULT_TYPE.DateTime; return node.resultType;
             case 'ADDMONTHS': node.resultType = this.RESULT_TYPE.Date; return node.resultType;
             default: node.resultType = this.RESULT_TYPE.Unknown; return node.resultType;
           }
@@ -352,14 +356,14 @@ export default class FormulaEngine {
     // Accept the following:
     // - YYYY-MM-DDTHH:mm
     // - YYYY-MM-DD HH:mm
-    // - YYYY-MM-DDTHH:mm:ssZ
-    // - YYYY-MM-DDTHH:mm:ss
+    // - YYYY-MM-DDTHH:mm:ssZ (with optional .SSS)
+    // - YYYY-MM-DDTHH:mm:ss (with optional .SSS)
     // - YYYY-MM-DD HH:mm:ss
     // - MM/DD/YYYY HH:mm
     // - MM/DD/YYYY HH:mm:ss
     // - MM/DD/YYYY (date only)
-    const isoBasic = /^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?$/; // with optional seconds
-    const isoWithZ = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/; // explicit Z
+    const isoBasic = /^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?)?$/; // with optional seconds and millis
+    const isoWithZ = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/; // explicit Z, optional millis
     const usLike = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
     const usWithTime = /^\d{1,2}\/\d{1,2}\/\d{4}\s+\d{2}:\d{2}(?::\d{2})?$/;
     if (!(isoBasic.test(s) || isoWithZ.test(s) || usLike.test(s) || usWithTime.test(s))) return false;
@@ -410,6 +414,20 @@ export default class FormulaEngine {
             // Keep datetimes in normalized ISO format (no locale conversion)
             if (d) return this.toIsoZSeconds(d);
             return String(v);
+          }
+          case 'LPAD': {
+            if (args.length !== 2 && args.length !== 3) throw new Error('LPAD requires two or three arguments: text, padded_length[, pad_string]');
+            const input = args[0] == null ? '' : String(args[0]);
+            const nRaw = Number(args[1]);
+            if (!Number.isFinite(nRaw)) throw new Error('LPAD padded_length must be numeric');
+            const targetLen = Math.trunc(nRaw);
+            const padStr = (args.length === 3 ? String(args[2] ?? '') : ' ');
+            if (targetLen <= 0) return '';
+            if (input.length >= targetLen) return input.slice(0, targetLen);
+            const need = targetLen - input.length;
+            if (padStr.length === 0 && need > 0) throw new Error('LPAD pad_string cannot be empty when padding is needed');
+            const left = (padStr.repeat(Math.ceil(need / padStr.length))).slice(0, need);
+            return left + input;
           }
           case 'VALUE': {
             if (args.length !== 1) throw new Error('VALUE requires exactly one argument');
@@ -574,6 +592,79 @@ export default class FormulaEngine {
             if (!d) throw new Error('DATEVALUE expects a date-like value');
             return new Date(d.getFullYear(), d.getMonth(), d.getDate());
           }
+          case 'DATETIMEVALUE': {
+            if (args.length !== 1) throw new Error('DATETIMEVALUE requires exactly one argument');
+            const v = args[0];
+            // If already a Date, return as UTC ISO with seconds
+            if (v instanceof Date) return this.toIsoZSeconds(v);
+            if (v === null || v === undefined) throw new Error('DATETIMEVALUE expects a datetime string');
+            const s = String(v).trim();
+            // Expected format: YYYY-MM-DD HH:MM:SS -> interpret as GMT
+            const m = s.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/);
+            if (m) {
+              const year = parseInt(m[1], 10);
+              const month = parseInt(m[2], 10);
+              const day = parseInt(m[3], 10);
+              const hour = parseInt(m[4], 10);
+              const minute = parseInt(m[5], 10);
+              const second = parseInt(m[6], 10);
+              const dUtc = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+              if (isNaN(dUtc.getTime())) throw new Error('Invalid datetime for DATETIMEVALUE');
+              return this.toIsoZSeconds(dUtc);
+            }
+            // Fallback: try generic parser then normalize to UTC ISO
+            const d = this.toDate(s);
+            if (!d) throw new Error('DATETIMEVALUE expects text like YYYY-MM-DD HH:MM:SS');
+            return this.toIsoZSeconds(d);
+          }
+          case 'TIMEVALUE': {
+            if (args.length !== 1) throw new Error('TIMEVALUE requires exactly one argument');
+            const v = args[0];
+            if (v === null || v === undefined) throw new Error('TIMEVALUE expects a time or datetime value');
+            // If Date provided, extract UTC time components
+            if (v instanceof Date) {
+              const dUtc = new Date(Date.UTC(1970, 0, 1, v.getUTCHours(), v.getUTCMinutes(), v.getUTCSeconds(), v.getUTCMilliseconds()));
+              return dUtc.toISOString();
+            }
+            const s = String(v).trim();
+            // First try pure time format HH:MM:SS(.MS)
+            const m = s.match(/^(\d{1,2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?$/);
+            if (m) {
+              let hh = parseInt(m[1], 10);
+              const mm = parseInt(m[2], 10);
+              const ss = parseInt(m[3], 10);
+              let ms = m[4] ? m[4] : '0';
+              if (hh < 0 || hh > 23) throw new Error('TIMEVALUE hour must be 0-23');
+              if (mm < 0 || mm > 59) throw new Error('TIMEVALUE minute must be 0-59');
+              if (ss < 0 || ss > 59) throw new Error('TIMEVALUE second must be 0-59');
+              if (typeof ms === 'string') {
+                if (ms.length === 1) ms = String(parseInt(ms, 10) * 100);
+                else if (ms.length === 2) ms = String(parseInt(ms, 10) * 10);
+              }
+              const msi = parseInt(ms, 10) || 0;
+              const dUtc = new Date(Date.UTC(1970, 0, 1, hh, mm, ss, msi));
+              if (isNaN(dUtc.getTime())) throw new Error('Invalid time for TIMEVALUE');
+              return dUtc.toISOString();
+            }
+            // Otherwise, try parsing as a date-time string and extract time (prefer UTC semantics)
+            const mdt = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(?:Z)?$/);
+            if (mdt) {
+              const hh = parseInt(mdt[4], 10);
+              const mm = parseInt(mdt[5], 10);
+              const ss = parseInt(mdt[6], 10);
+              let ms = mdt[7] ? mdt[7] : '0';
+              if (typeof ms === 'string') {
+                if (ms.length === 1) ms = String(parseInt(ms, 10) * 100);
+                else if (ms.length === 2) ms = String(parseInt(ms, 10) * 10);
+              }
+              const msi = parseInt(ms, 10) || 0;
+              const dUtc = new Date(Date.UTC(1970, 0, 1, hh, mm, ss, msi));
+              return dUtc.toISOString();
+            }
+            const d = this.toDate(s);
+            if (!d) throw new Error('TIMEVALUE expects HH:MM:SS.MS or a datetime');
+            return new Date(Date.UTC(1970, 0, 1, d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds())).toISOString();
+          }
           case 'YEAR': {
             if (args.length !== 1) throw new Error('YEAR requires exactly one argument');
             const d = this.toDate(args[0]);
@@ -634,6 +725,16 @@ export default class FormulaEngine {
             return fmt(left) + fmt(right);
           }
           case '+': {
+            // If either side is Text per type hints, perform string concatenation
+            if (leftTypeHint === this.RESULT_TYPE.Text || rightTypeHint === this.RESULT_TYPE.Text) {
+              const fmt = (v) => {
+                if (v === null || v === undefined) return '';
+                const d = this.toDate(v);
+                if (d) return d.toLocaleString();
+                return String(v);
+              };
+              return fmt(left) + fmt(right);
+            }
             const rightNum = Number(right);
             const leftNum = Number(left);
             if (leftDate && Number.isFinite(rightNum)) return this.toIsoZSeconds(new Date(leftDate.getTime() + (Math.round(rightNum) * 86400000)));
