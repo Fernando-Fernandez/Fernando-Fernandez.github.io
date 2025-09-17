@@ -355,7 +355,7 @@ export function openSvgDiagram(ast, options = {}) {
   <header>
     <button id="downloadBtn">Download SVG</button>
     <a id="rawBtn" href="${url}" target="_blank" rel="noopener">Open Raw SVG</a>
-    <label>Zoom <input id="zoomSlider" type="range" min="0.25" max="2.5" step="0.05" value="1" /> <span id="zoomLabel">100%</span></label>
+    <label>Zoom <input id="zoomSlider" type="range" min="0.25" max="5" step="0.05" value="1" /> <span id="zoomLabel">100%</span></label>
     <span>Size: ${Math.ceil(width)} × ${Math.ceil(height)} px</span>
   </header>
   <main>
