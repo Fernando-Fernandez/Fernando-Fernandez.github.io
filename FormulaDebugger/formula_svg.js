@@ -1,8 +1,8 @@
 import FormulaEngine from './formula_engine.js';
 
 const DEFAULTS = {
-  horizontalSpacing: 56,
-  verticalSpacing: 64,
+  horizontalSpacing: 72,
+  verticalSpacing: 48,
   paddingX: 48,
   paddingY: 48,
   cornerRadius: 12,
@@ -184,10 +184,10 @@ export function generateSvgDiagram(ast, options = {}) {
   const paddingY = resolveSpacing(settings, 'paddingY', 32);
 
   const layoutNodes = [];
-  const levelHeights = [];
-  let nextX = 0;
-  let minX = Infinity;
-  let maxX = -Infinity;
+  const columnWidths = [];
+  let nextY = 0;
+  let minY = Infinity;
+  let maxY = -Infinity;
 
   const layout = (node, depth = 0) => {
     if (!node) return null;
@@ -197,22 +197,22 @@ export function generateSvgDiagram(ast, options = {}) {
       .filter(Boolean);
     const info = computeNodeInfo(node, settings);
 
-    let x;
+    let y;
     if (children.length === 0) {
-      x = nextX + info.width / 2;
-      nextX += info.width + settings.horizontalSpacing;
+      y = nextY + info.height / 2;
+      nextY += info.height + settings.verticalSpacing;
     } else {
       const first = children[0];
       const last = children[children.length - 1];
-      x = (first.x + last.x) / 2;
+      y = (first.y + last.y) / 2;
     }
 
-    const item = { node, children, info, depth, x };
+    const item = { node, children, info, depth, y };
     layoutNodes.push(item);
 
-    minX = Math.min(minX, x - info.width / 2);
-    maxX = Math.max(maxX, x + info.width / 2);
-    levelHeights[depth] = Math.max(levelHeights[depth] || 0, info.height);
+    minY = Math.min(minY, y - info.height / 2);
+    maxY = Math.max(maxY, y + info.height / 2);
+    columnWidths[depth] = Math.max(columnWidths[depth] || 0, info.width);
 
     return item;
   };
@@ -220,50 +220,53 @@ export function generateSvgDiagram(ast, options = {}) {
   const root = layout(ast, 0);
   if (!root || !layoutNodes.length) throw new Error('Unable to layout AST');
 
-  // Convert per-depth heights into cumulative offsets.
-  const levelOffsets = [];
-  let accumulated = 0;
-  for (let i = 0; i < levelHeights.length; i++) {
-    levelOffsets[i] = accumulated;
-    accumulated += levelHeights[i] + settings.verticalSpacing;
+  // Convert per-depth widths into cumulative offsets for left-to-right layout.
+  const columnOffsets = [];
+  let accumulatedWidth = 0;
+  for (let i = 0; i < columnWidths.length; i++) {
+    columnOffsets[i] = accumulatedWidth;
+    accumulatedWidth += columnWidths[i] + settings.horizontalSpacing;
   }
-  if (levelHeights.length > 0) {
-    accumulated -= settings.verticalSpacing; // remove final extra spacing
+  if (columnWidths.length > 0) {
+    accumulatedWidth -= settings.horizontalSpacing; // remove trailing spacing
   }
 
-  const contentWidth = Math.max(0, maxX - minX);
-  const contentHeight = Math.max(0, accumulated);
+  const contentWidth = Math.max(0, accumulatedWidth);
+  const contentHeight = Math.max(0, maxY - minY);
   const svgWidth = Math.ceil(contentWidth + paddingX * 2);
   const svgHeight = Math.ceil(contentHeight + paddingY * 2);
-  const offsetX = paddingX - minX;
-  const offsetY = paddingY;
+  const offsetX = paddingX;
+  const offsetY = paddingY - minY;
 
-  // Assign y positions now that level offsets are known.
+  // Assign x positions from column offsets now that widths are known.
   for (const item of layoutNodes) {
-    item.y = levelOffsets[item.depth] ?? 0;
+    const columnOffset = columnOffsets[item.depth] ?? 0;
+    item.x = columnOffset + item.info.width / 2;
   }
 
   const edges = [];
   for (const item of layoutNodes) {
-    const baseX = item.x + offsetX;
-    const top = item.y + offsetY;
-    const bottom = top + item.info.height;
+    const centerX = item.x + offsetX;
+    const centerY = item.y + offsetY;
+    const rightX = centerX + item.info.width / 2;
     for (const child of item.children) {
-      const childX = child.x + offsetX;
-      const childTop = (child.y ?? 0) + offsetY;
+      const childCenterX = child.x + offsetX;
+      const childCenterY = child.y + offsetY;
+      const leftX = childCenterX - child.info.width / 2;
       edges.push({
-        x1: baseX,
-        y1: bottom,
-        x2: childX,
-        y2: childTop,
+        x1: rightX,
+        y1: centerY,
+        x2: leftX,
+        y2: childCenterY,
       });
     }
   }
 
   const nodeElements = layoutNodes.map(item => {
-    const top = item.y + offsetY;
-    const left = item.x + offsetX - item.info.width / 2;
     const centerX = item.x + offsetX;
+    const centerY = item.y + offsetY;
+    const top = centerY - item.info.height / 2;
+    const left = centerX - item.info.width / 2;
 
     const textLines = item.info.lines.map((line, idx) => {
       const baseline = top + settings.textPaddingTop + settings.fontSize + idx * settings.lineHeight;
@@ -278,8 +281,8 @@ export function generateSvgDiagram(ast, options = {}) {
   }).join('\n');
 
   const edgeElements = edges.map(edge => {
-    const midY = (edge.y1 + edge.y2) / 2;
-    return `<path d="M ${edge.x1} ${edge.y1} C ${edge.x1} ${midY}, ${edge.x2} ${midY}, ${edge.x2} ${edge.y2}" fill="none" stroke="#94a3b8" stroke-width="1.5" />`;
+    const midX = (edge.x1 + edge.x2) / 2;
+    return `<path d="M ${edge.x1} ${edge.y1} C ${midX} ${edge.y1}, ${midX} ${edge.y2}, ${edge.x2} ${edge.y2}" fill="none" stroke="#94a3b8" stroke-width="1.5" />`;
   }).join('\n');
 
   const svgParts = [
@@ -327,26 +330,55 @@ export function openSvgDiagram(ast, options = {}) {
   <style>
     body { margin: 0; font-family: sans-serif; background: #111827; color: #f9fafb; }
     header { padding: 12px 16px; display: flex; gap: 12px; align-items: center; background: rgba(17, 24, 39, 0.92); }
-    header button, header a { appearance: none; border: none; border-radius: 6px; padding: 8px 12px; font-size: 13px; cursor: pointer; text-decoration: none; }
+    header button, header a, header input[type="range"] {
+      appearance: none;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    header button, header a { padding: 8px 12px; text-decoration: none; }
     header button { background: #3b82f6; color: white; }
     header a { background: #1f2937; color: #f9fafb; border: 1px solid #374151; }
-    main { overflow: auto; height: calc(100vh - 48px); background: #f9fafb; }
-    main svg { display: block; margin: 0 auto; }
+    header label { display: flex; align-items: center; gap: 8px; color: #d1d5db; font-size: 13px; }
+    header input[type="range"] {
+      width: 140px;
+      background: transparent;
+    }
+    main { height: calc(100vh - 48px); background: #0f172a; padding: 16px; box-sizing: border-box; }
+    #viewport { width: 100%; height: 100%; background: #f9fafb; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(15,23,42,0.08); overflow: auto; }
+    #canvas { transform-origin: top left; }
+    #canvas svg { display: block; }
   </style>
 </head>
 <body>
   <header>
     <button id="downloadBtn">Download SVG</button>
     <a id="rawBtn" href="${url}" target="_blank" rel="noopener">Open Raw SVG</a>
+    <label>Zoom <input id="zoomSlider" type="range" min="0.25" max="2.5" step="0.05" value="1" /> <span id="zoomLabel">100%</span></label>
     <span>Size: ${Math.ceil(width)} × ${Math.ceil(height)} px</span>
   </header>
   <main>
-    ${svg}
+    <div id="viewport">
+      <div id="canvas">
+        ${svg}
+      </div>
+    </div>
   </main>
   <script>
     (function() {
       const downloadBtn = document.getElementById('downloadBtn');
+      const zoomSlider = document.getElementById('zoomSlider');
+      const zoomLabel = document.getElementById('zoomLabel');
+      const canvas = document.getElementById('canvas');
       const objectUrl = '${url}';
+
+      function applyZoom(value) {
+        const factor = Math.max(0.1, parseFloat(value) || 1);
+        canvas.style.transform = 'scale(' + factor + ')';
+        zoomLabel.textContent = Math.round(factor * 100) + '%';
+      }
+
       downloadBtn.addEventListener('click', function() {
         const link = document.createElement('a');
         link.href = objectUrl;
@@ -355,6 +387,13 @@ export function openSvgDiagram(ast, options = {}) {
         link.click();
         document.body.removeChild(link);
       });
+
+      zoomSlider.addEventListener('input', function() {
+        applyZoom(this.value);
+      });
+
+      applyZoom(zoomSlider.value);
+
       window.addEventListener('unload', function() { URL.revokeObjectURL(objectUrl); });
     })();
   </script>
