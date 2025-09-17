@@ -58,6 +58,16 @@ import FormulaEngine from './formula_engine.js';
     }
   }
 
+  function openSvg() {
+    try {
+      const raw = document.getElementById('CalculatedFormula').value || '';
+      const ast = FormulaEngine.parse(raw);
+      FormulaUI.openSvgDiagram(ast);
+    } catch (e) {
+      alert('Unable to generate SVG diagram: ' + (e && e.message ? e.message : e));
+    }
+  }
+
   function buildShareUrl(formula, { autoRun = true } = {}) {
     const url = new URL(window.location.href);
     // Normalize to `formula` param and drop `f` to avoid duplicates
@@ -98,6 +108,8 @@ import FormulaEngine from './formula_engine.js';
     const restored = restoreSample();
     document.getElementById('analyzeBtn').addEventListener('click', analyze);
     document.getElementById('mermaidBtn').addEventListener('click', openMermaid);
+    const svgBtn = document.getElementById('svgBtn');
+    if (svgBtn) svgBtn.addEventListener('click', openSvg);
     document.getElementById('copyUrlBtn').addEventListener('click', copyShareUrl);
     // If formula came from URL and auto is requested, run immediately
     if (restored && restored.from === 'url' && restored.auto) {

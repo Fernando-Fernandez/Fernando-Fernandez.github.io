@@ -1,4 +1,5 @@
 import FormulaEngine from './formula_engine.js';
+import { openSvgDiagram as openSvgDiagramWindow } from './formula_svg.js';
 
 // CSS style constants
 const STYLE_ERROR_BOX = 'color: red; padding: 10px; background: #ffe8e8; border: 1px solid #f44336; border-radius: 4px;';
@@ -301,6 +302,13 @@ export default class FormulaUI {
       mermaidBtn.addEventListener('click', () => this.openMermaidDiagram(ast));
       container.appendChild(mermaidBtn);
 
+      const svgBtn = doc.createElement('button');
+      svgBtn.textContent = 'Open SVG Diagram';
+      svgBtn.type = 'button';
+      svgBtn.style.cssText = STYLE_SECONDARY_BUTTON;
+      svgBtn.addEventListener('click', () => this.openSvgDiagram(ast));
+      container.appendChild(svgBtn);
+
       const resultDiv = doc.createElement('div');
       resultDiv.id = 'calculationResult';
       resultDiv.style.cssText = STYLE_RESULT_BOX;
@@ -340,6 +348,15 @@ export default class FormulaUI {
       }
     } catch (e) {
       console.error('Unable to open Mermaid diagram:', e);
+    }
+  }
+
+  static openSvgDiagram(ast) {
+    if (!ast) return;
+    try {
+      openSvgDiagramWindow(ast);
+    } catch (e) {
+      console.error('Unable to open SVG diagram:', e);
     }
   }
 
