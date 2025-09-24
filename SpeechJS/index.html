@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Web Speech Synthesis - Lab</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --card: #111733;
+      --muted: #98a2b3;
+      --text: #e5e7eb;
+      --accent: #4f46e5;
+      --border: #263158;
+    }
+    html, body { height: 100%; }
+    body {
+      margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu;
+      background: linear-gradient(180deg, #0b1020, #0e1530);
+      color: var(--text);
+    }
+    .wrap { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+    h1 { font-size: 22px; margin: 0 0 12px; }
+    .grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 16px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px; padding: 14px;
+      box-shadow: 0 6px 24px rgba(0,0,0,.25);
+    }
+    textarea { width: 100%; min-height: 220px; resize: vertical; font-size: 14px; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: #0b1128; color: var(--text); }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    select, input[type="range"], input[type="text"] {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0b1128; color: var(--text);
+      font-size: 14px;
+    }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: center; }
+    .controls { display: grid; gap: 10px; }
+    .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    button {
+      padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border);
+      background: #0b1128; color: var(--text); cursor: pointer; font-weight: 600;
+    }
+    button.primary { background: var(--accent); border-color: transparent; }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+    .small { font-size: 12px; color: var(--muted); }
+    .log { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; background: #0b1128; border: 1px solid var(--border); border-radius: 10px; padding: 10px; min-height: 160px; }
+    .flex { display: flex; gap: 10px; align-items: center; }
+    .pill { background: #0b1128; border: 1px solid var(--border); padding: 4px 8px; border-radius: 999px; font-size: 12px; }
+    .k { color: #cbd5e1; }
+    .v { color: #eab308; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Web Speech Synthesis - Experimental Page</h1>
+    <div class="grid">
+      <div class="card">
+        <label for="text">Text to speak</label>
+        <textarea id="text" placeholder="Type something, or paste a paragraph. Use the Split by sentences toggle to queue multiple utterances.">Hello there. This is a quick test of the Web Speech API. Try changing voice, rate, pitch, and volume, then click Speak.</textarea>
+
+        <div class="btns">
+          <button id="speak" class="primary">Speak</button>
+          <button id="pause">Pause</button>
+          <button id="resume">Resume</button>
+          <button id="stop">Stop</button>
+          <button id="clear">Clear Queue</button>
+        </div>
+
+        <div class="flex" style="margin-top:10px;">
+          <label class="flex" style="gap:8px; align-items:center;">
+            <input type="checkbox" id="split" /> Split by sentences
+          </label>
+          <span id="queueSize" class="pill">queue: 0</span>
+          <span id="status" class="pill">idle</span>
+        </div>
+      </div>
+
+      <div class="card controls">
+        <div>
+          <label for="voice">Voice (this list varies according to each browser and OS)</label>
+          <select id="voice"></select>
+          <div class="small">If the list is empty, click Refresh Voices. Some browsers restrict voices until user interaction.</div>
+          <div class="btns"><button id="refresh">Refresh Voices</button><button id="testbeep">Test Audio Unlock</button></div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="rate">Rate: <span id="rateVal" class="v">1.0</span></label>
+            <input type="range" min="0.5" max="2" step="0.1" value="1" id="rate" />
+          </div>
+          <div>
+            <label for="pitch">Pitch: <span id="pitchVal" class="v">1.0</span></label>
+            <input type="range" min="0" max="2" step="0.1" value="1" id="pitch" />
+          </div>
+        </div>
+        <div>
+          <label for="volume">Volume: <span id="volumeVal" class="v">1.0</span></label>
+          <input type="range" min="0" max="1" step="0.01" value="1" id="volume" />
+        </div>
+
+        <div>
+          <label for="sentenceRegex">Sentence split regex</label>
+          <input id="sentenceRegex" type="text" value="(?<=\.|!|\?)\s+" />
+          <div class="small">Used when Split by sentences is enabled. Example uses a lookbehind for ., !, ? followed by whitespace.</div>
+        </div>
+
+        <div>
+          <label>Event log</label>
+          <div id="log" class="log"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="small" style="margin-top:10px;">
+      Notes: SpeechSynthesis requires user interaction to start audio on some platforms. iOS Safari may only expose a few voices and starts speaking only after a tap. Voices are provided by the OS and vary by device and language.
+    </div>
+  </div>
+
+  <script>
+    const synth = window.speechSynthesis;
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+    const els = {
+      text: $('#text'),
+      voice: $('#voice'),
+      rate: $('#rate'), rateVal: $('#rateVal'),
+      pitch: $('#pitch'), pitchVal: $('#pitchVal'),
+      volume: $('#volume'), volumeVal: $('#volumeVal'),
+      speak: $('#speak'), pause: $('#pause'), resume: $('#resume'), stop: $('#stop'), clear: $('#clear'),
+      split: $('#split'), regex: $('#sentenceRegex'),
+      refresh: $('#refresh'), testbeep: $('#testbeep'),
+      log: $('#log'),
+      status: $('#status'),
+      queueSize: $('#queueSize'),
+    };
+
+    // Keep the exact list/order used in the UI to avoid index drift.
+    let uiVoices = [];
+
+    function log(...args) {
+      const t = new Date().toLocaleTimeString();
+      els.log.textContent += `[${t}] ${args.join(' ')}\n`;
+      els.log.scrollTop = els.log.scrollHeight;
+    }
+
+    function setStatus(s) { els.status.textContent = s; }
+    function updateQueueBadge() { els.queueSize.textContent = `queue: ${synth.pending ? synth.pending : 0}`; }
+
+    function keyFor(v) { return v.voiceURI || `${v.name}|${v.lang}`; }
+
+    // Utility: detect Safari (excludes Chrome/Chromium/Edg)
+    function isSafari() {
+        const ua = navigator.userAgent;
+        return /^((?!chrome|chromium|android|edg).)*safari/i.test(ua);
+    }
+
+    // Decide which voice should be the default
+    function pickDefaultVoice(voices) {
+        if (!voices.length) return null;
+
+        if (isSafari()) {
+            // Safari quirk: all voices flagged as default. Use explicit priority list.
+            const preferred = ["Alex", "Samantha", "Reed"];
+            for (const name of preferred) {
+            const v = voices.find(vo => vo.name === name);
+            if (v) return v;
+            }
+
+            // If none of the preferred voices exist, fallback by language
+            const langPref = navigator.language || "en-US";
+            let v = voices.find(vo => vo.lang === langPref);
+            if (v) return v;
+            const base = langPref.split("-")[0];
+            v = voices.find(vo => vo.lang.startsWith(base));
+            if (v) return v;
+
+            // Last resort
+            return voices[0];
+        } else {
+            // Non-Safari: trust the .default flag if any
+            return voices.find(v => v.default) || voices[0];
+        }
+    }
+
+    function listVoices(preserveSelection = true) {
+
+        const voices = speechSynthesis.getVoices()
+            .slice()
+            .sort((a,b) => (a.lang||"").localeCompare(b.lang||"") || a.name.localeCompare(b.name));
+
+        uiVoices = voices;
+        const sel = document.getElementById("voice");
+        sel.innerHTML = "";
+
+        const defaultVoice = pickDefaultVoice(voices);
+        let defaultIndex = 0;
+
+        voices.forEach((v, i) => {
+            const opt = document.createElement("option");
+            opt.value = v.voiceURI || `${v.name}|${v.lang}`;
+            opt.textContent = `${v.name} - ${v.lang}${v.default ? " (default)" : ""}`;
+            sel.appendChild(opt);
+            if (v === defaultVoice) defaultIndex = i;
+        });
+
+        sel.selectedIndex = defaultIndex;
+    }
+
+    function splitSentences(text) {
+      try {
+        const re = new RegExp(els.regex.value);
+        return text.split(re).map(s => s.trim()).filter(Boolean);
+      } catch (e) {
+        log('Regex error:', e.message);
+        return [text];
+      }
+    }
+
+    function makeUtterance(text) {
+        const u = new SpeechSynthesisUtterance(text);
+        const sel = document.getElementById("voice");
+        const selected = uiVoices[sel.selectedIndex];
+        if (selected) u.voice = selected;
+
+        u.rate = parseFloat(els.rate.value);
+        u.pitch = parseFloat(els.pitch.value);
+        u.volume = parseFloat(els.volume.value);
+
+        u.onstart = () => { setStatus('speaking'); log('start:', JSON.stringify(text).slice(0, 80)); };
+        u.onend = () => { setStatus('idle'); log('end'); updateQueueBadge(); };
+        u.onpause = () => { setStatus('paused'); log('pause'); };
+        u.onresume = () => { setStatus('speaking'); log('resume'); };
+        u.onerror = (e) => { setStatus('error'); log('error:', e.error || e.message); };
+        u.onboundary = (e) => { if (e.name === 'word') log(`boundary: charIndex=${e.charIndex}`); };
+        return u;
+    }
+
+    function speak() {
+      const text = els.text.value.trim();
+      if (!text) { log('Nothing to speak.'); return; }
+      const parts = els.split.checked ? splitSentences(text) : [text];
+      parts.forEach(p => synth.speak(makeUtterance(p)));
+      updateQueueBadge();
+    }
+
+    function stop() { synth.cancel(); updateQueueBadge(); setStatus('idle'); log('cancel'); }
+    function pause() { try { synth.pause(); setStatus('paused'); log('pause()'); } catch(e) { log('pause error:', e.message); } }
+    function resume() { try { synth.resume(); setStatus('speaking'); log('resume()'); } catch(e) { log('resume error:', e.message); } }
+
+    // Event bindings
+    els.speak.onclick = speak;
+    els.stop.onclick = stop;
+    els.pause.onclick = pause;
+    els.resume.onclick = resume;
+    els.clear.onclick = () => { stop(); els.log.textContent = ''; };
+
+    els.rate.oninput = () => els.rateVal.textContent = els.rate.value;
+    els.pitch.oninput = () => els.pitchVal.textContent = els.pitch.value;
+    els.volume.oninput = () => els.volumeVal.textContent = els.volume.value;
+
+    els.refresh.onclick = () => { listVoices(); };
+
+    // Simple audio unlock stub for mobile
+    els.testbeep.onclick = async () => {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination); g.gain.value = 0.001; o.start(); o.stop(ctx.currentTime + 0.05);
+        await ctx.resume();
+        log('AudioContext resumed.');
+      } catch (e) { log('Audio unlock error:', e.message); }
+    };
+
+    // Voices may load asynchronously
+    listVoices();
+    if ('onvoiceschanged' in synth) {
+      synth.onvoiceschanged = () => { listVoices(); };
+    } else {
+      // Fallback: try again after a tick
+      setTimeout(listVoices, 500);
+    }
+  </script>
+</body>
+</html>
