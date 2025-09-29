@@ -1552,7 +1552,12 @@
                   },
                   {
                     flag: "--status",
-                    description: "Filter results by request status."
+                    description: "Filter results by request status.",
+                    choices: ["Created", "Cancelled", "Pending", "In Progress", "Failed", "Succeeded"]
+                  },
+                  {
+                    flag: "--show-push-migrations-only",
+                    description: "Show only requests created for package push migrations."
                   }
                 ]
               },
