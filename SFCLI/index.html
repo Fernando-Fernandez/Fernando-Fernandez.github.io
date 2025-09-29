@@ -307,6 +307,12 @@
       color: rgba(15, 23, 42, 0.78);
     }
 
+    .option-choices {
+      margin: 0.25rem 0 0;
+      font-size: 0.85rem;
+      color: rgba(15, 23, 42, 0.65);
+    }
+
     .sr-only {
       position: absolute;
       width: 1px;
@@ -495,41 +501,80 @@
           deploy: {
             title: "SF project deploy",
             description: "Deploy source from your local project into a target org using the unified deploy workflow.",
-            options: [
-              {
-                shorthand: "-o",
-                flag: "--target-org",
-                description: "Alias or username for the org that will receive the deployment."
-              },
-              {
-                shorthand: "-m",
-                flag: "--metadata",
-                description: "Deploy only the specified metadata types and components (type:name)."
-              },
-              {
-                shorthand: "-x",
-                flag: "--manifest",
-                description: "Use a package.xml file to control the deployed metadata."
-              },
-              {
-                flag: "--source-dir",
-                description: "One or more local source directories that contain the metadata to deploy."
-              },
-              {
-                flag: "--test-level",
-                description: "Set the Apex test execution level such as RunLocalTests or RunSpecifiedTests."
-              },
-              {
-                flag: "--wait",
-                description: "Minutes to wait for the command to finish before timing out."
-              },
-              {
-                flag: "--dry-run",
-                description: "Validate the deployment without committing changes to the org."
-              }
-            ],
             doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_project_commands_unified.htm",
             subcommands: {
+              start: {
+                title: "SF project deploy start",
+                description: "Start a metadata deployment from your local project to a target org.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_project_commands_unified.htm#sf-project-deploy-start",
+                options: [
+                  {
+                    shorthand: "-o",
+                    flag: "--target-org",
+                    description: "Alias or username for the org that will receive the deployment."
+                  },
+                  {
+                    shorthand: "-m",
+                    flag: "--metadata",
+                    description: "Deploy only the specified metadata types and components (type:name)."
+                  },
+                  {
+                    shorthand: "-x",
+                    flag: "--manifest",
+                    description: "Use a package.xml file to control the deployed metadata."
+                  },
+                  {
+                    flag: "--source-dir",
+                    description: "One or more local source directories that contain the metadata to deploy."
+                  },
+                  {
+                    flag: "--tests",
+                    description: "Comma-separated Apex test class names to run with the deployment."
+                  },
+                  {
+                    flag: "--test-level",
+                    description: "Execution level for Apex tests that run with the deployment.",
+                    choices: ["RunLocalTests", "RunAllTestsInOrg", "RunSpecifiedTests"]
+                  },
+                  {
+                    flag: "--coverage-format",
+                    description: "Format for any generated code coverage files.",
+                    choices: ["human", "json", "lcov"]
+                  },
+                  {
+                    flag: "--wait",
+                    description: "Minutes to wait for the deployment to finish before timing out."
+                  },
+                  {
+                    flag: "--dry-run",
+                    description: "Validate the deployment without committing changes to the org."
+                  },
+                  {
+                    flag: "--ignore-conflicts",
+                    description: "Allow deployments to continue even if source conflicts are detected."
+                  },
+                  {
+                    flag: "--ignore-errors",
+                    description: "Continue deployment when recoverable errors are returned by the server."
+                  },
+                  {
+                    flag: "--ignore-warnings",
+                    description: "Ignore deployment warnings instead of treating them as failures."
+                  },
+                  {
+                    flag: "--cancel-on-warning",
+                    description: "Automatically cancel the deployment if warnings occur."
+                  },
+                  {
+                    flag: "--validate",
+                    description: "Run the deployment as a validation only; no changes are committed."
+                  },
+                  {
+                    flag: "--json",
+                    description: "Return deployment status in JSON format."
+                  }
+                ]
+              },
               pipeline: {
                 title: "SF project deploy pipeline",
                 description: "Promote a pipeline stage by deploying the associated snapshot to the target org.",
@@ -2220,7 +2265,8 @@
                   {
                     shorthand: "-t",
                     flag: "--template",
-                    description: "Template to use, such as DefaultApexClass or ApexUnitTest."
+                    description: "Template to use, such as DefaultApexClass or ApexUnitTest.",
+                    choices: ["DefaultApexClass", "ApexUnitTest", "ApexException", "BasicUnitTest", "InboundEmailService"]
                   },
                   {
                     shorthand: "-d",
@@ -2251,7 +2297,16 @@
                   {
                     shorthand: "-e",
                     flag: "--event",
-                    description: "One or more trigger events, such as before insert or after update."
+                    description: "One or more trigger events, such as before insert or after update.",
+                    choices: [
+                      "before insert",
+                      "before update",
+                      "before delete",
+                      "after insert",
+                      "after update",
+                      "after delete",
+                      "after undelete"
+                    ]
                   },
                   {
                     shorthand: "-d",
@@ -2324,7 +2379,8 @@
                   {
                     shorthand: "-r",
                     flag: "--result-format",
-                    description: "Format for results, such as human, junit, tap, or json."
+                    description: "Format for results, such as human, junit, tap, or json.",
+                    choices: ["human", "tap", "junit", "json"]
                   },
                   {
                     shorthand: "-d",
@@ -2438,7 +2494,8 @@
                   {
                     shorthand: "-l",
                     flag: "--test-level",
-                    description: "Level of tests to run, such as RunLocalTests or RunAllTestsInOrg."
+                    description: "Level of tests to run, such as RunLocalTests or RunAllTestsInOrg.",
+                    choices: ["RunLocalTests", "RunAllTestsInOrg", "RunSpecifiedTests"]
                   },
                   {
                     shorthand: "-w",
@@ -2453,7 +2510,8 @@
                   {
                     shorthand: "-r",
                     flag: "--result-format",
-                    description: "Preferred result format, such as human, tap, junit, or json."
+                    description: "Preferred result format, such as human, tap, junit, or json.",
+                    choices: ["human", "tap", "junit", "json"]
                   },
                   {
                     shorthand: "-c",
@@ -2582,7 +2640,7 @@
       }
 
       optionsBlock.hidden = false;
-      options.forEach(({ flag, shorthand, description }) => {
+      options.forEach(({ flag, shorthand, description, choices }) => {
         const item = document.createElement("li");
         item.className = "option-item";
         item.dataset.flag = flag || "";
@@ -2610,6 +2668,13 @@
           descriptionNode.className = "option-description";
           descriptionNode.textContent = description;
           item.appendChild(descriptionNode);
+        }
+
+        if (Array.isArray(choices) && choices.length) {
+          const choicesNode = document.createElement("p");
+          choicesNode.className = "option-choices";
+          choicesNode.textContent = `Accepted values: ${choices.join(", ")}`;
+          item.appendChild(choicesNode);
         }
 
         optionList.appendChild(item);
@@ -2826,6 +2891,18 @@
 
       const subSubKey = findMatchKey(subSubCommands, thirdToken);
       if (!subSubKey) {
+        const isFlagToken = thirdToken && thirdToken.startsWith("-");
+        if (isFlagToken) {
+          commandTitleText.textContent = subDetails.title;
+          commandDescription.textContent = subDetails.description;
+          renderCommandList(buildNestedEntries(primaryKey, subKey, null));
+          updateMetaLabel("Subcommands", subSubKeys);
+          renderOptions(subDetails.options || []);
+          setDocLink(subDetails.doc || primaryDetails.doc || null);
+          navBackButton.hidden = false;
+          return;
+        }
+
         commandTitleText.textContent = `SF ${value}`;
         commandDescription.textContent = "Command not found. Try one of the supported parameters shown below.";
         renderCommandList(buildNestedEntries(primaryKey, subKey, null));
