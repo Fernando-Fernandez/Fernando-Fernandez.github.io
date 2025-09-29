@@ -1,0 +1,2916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SF CLI Cheatsheet</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Fira Code", "Source Code Pro", Consolas, monospace;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at top left, #1f2937 0%, #0f172a 65%, #020617 100%);
+      color: #e2e8f0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 3rem 1rem 2rem;
+    }
+
+    .terminal {
+      width: min(720px, 100%);
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 20px;
+      box-shadow: 0 10px 35px rgba(15, 23, 42, 0.6);
+      overflow: hidden;
+    }
+
+    .terminal-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background: rgba(15, 23, 42, 0.7);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+      letter-spacing: 0.08em;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      color: rgba(226, 232, 240, 0.75);
+    }
+
+    .traffic-light {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      background: currentColor;
+      opacity: 0.35;
+    }
+
+    .traffic-light:nth-child(1) { color: #f87171; }
+    .traffic-light:nth-child(2) { color: #facc15; }
+    .traffic-light:nth-child(3) { color: #34d399; }
+
+    .terminal-body {
+      padding: 1.5rem;
+    }
+
+    .prompt-line {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.35rem;
+      flex-wrap: wrap;
+    }
+
+    .prompt-prefix {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      color: rgba(248, 250, 252, 0.75);
+    }
+
+    .prompt-prefix::before {
+      content: "➜";
+      color: #38bdf8;
+    }
+
+    .prompt-prefix span {
+      color: #fbbf24;
+    }
+
+    .prompt-input-wrapper {
+      flex: 1 1 240px;
+      position: relative;
+    }
+
+    .prompt-input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid rgba(148, 163, 184, 0.3);
+      padding: 0.35rem 0.1rem 0.25rem;
+      font-size: 1.35rem;
+      color: #f8fafc;
+      outline: none;
+      transition: border-color 0.2s ease;
+      letter-spacing: 0.04em;
+    }
+
+    .prompt-input:focus {
+      border-color: #38bdf8;
+    }
+
+    .prompt-placeholder {
+      position: absolute;
+      inset: 0.35rem 0 0;
+      pointer-events: none;
+      font-size: 1rem;
+      color: rgba(148, 163, 184, 0.55);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: opacity 0.15s ease;
+    }
+
+    .prompt-placeholder.hidden {
+      opacity: 0;
+    }
+
+    .info-panel {
+      margin-top: 1.75rem;
+      padding: 1.5rem;
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(226, 232, 240, 0.35), rgba(148, 163, 184, 0.3));
+      border: 1px solid rgba(226, 232, 240, 0.45);
+      box-shadow: inset 0 1px 0 rgba(248, 250, 252, 0.25);
+      backdrop-filter: blur(6px);
+    }
+
+    .info-heading {
+      margin: 0;
+      font-size: 1.25rem;
+      letter-spacing: 0.04em;
+      color: #38bdf8;
+    }
+
+    .info-description {
+      margin-top: 0.75rem;
+      margin-bottom: 0.75rem;
+      line-height: 1.6;
+      color: rgba(15, 23, 42, 0.8);
+    }
+
+    .info-heading-link {
+      color: inherit;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      position: relative;
+      padding: 0.1rem 0;
+      transition: color 0.15s ease;
+    }
+
+    .info-heading-link::after {
+      content: "↗";
+      font-size: 1rem;
+      opacity: 0.9;
+    }
+
+    .info-heading-link:hover,
+    .info-heading-link:focus-visible {
+      text-decoration: underline;
+    }
+
+    .info-heading-link.is-disabled {
+      pointer-events: none;
+      cursor: default;
+      text-decoration: none;
+    }
+
+    .info-heading-link.is-disabled::after {
+      content: none;
+    }
+
+    .panel-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .nav-back {
+      padding: 0.35rem 0.9rem;
+      border: 1px solid rgba(56, 189, 248, 0.5);
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.15);
+      color: #0f172a;
+      font-family: "Fira Code", "Source Code Pro", Consolas, monospace;
+      font-size: 0.85rem;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      transition: transform 0.12s ease, background 0.12s ease;
+    }
+
+    .nav-back:hover,
+    .nav-back:focus-visible {
+      background: rgba(56, 189, 248, 0.25);
+      transform: translateY(-1px);
+      outline: none;
+    }
+
+    .info-meta {
+      font-size: 0.85rem;
+      color: rgba(15, 23, 42, 0.65);
+      flex: 1;
+    }
+
+    .command-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 0.8rem;
+      margin-top: 1rem;
+      padding: 0;
+      list-style: none;
+      font-size: 0.9rem;
+      letter-spacing: 0.05em;
+    }
+
+    .command-list li {
+      padding: 0.2rem 0.75rem;
+      border-radius: 12px;
+      background: rgba(148, 163, 184, 0.3);
+      color: rgba(15, 23, 42, 0.85);
+      cursor: pointer;
+      transition: transform 0.12s ease, background 0.12s ease;
+    }
+
+    .command-list li.active {
+      background: rgba(56, 189, 248, 0.25);
+      color: #0f172a;
+      border: 1px solid rgba(56, 189, 248, 0.5);
+      transform: translateY(-1px);
+    }
+
+    .command-list li:focus-visible {
+      outline: 2px solid rgba(56, 189, 248, 0.8);
+      outline-offset: 2px;
+    }
+
+    .options-block {
+      margin-top: 1.5rem;
+      padding-top: 1.3rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.4);
+    }
+
+    .options-heading {
+      margin: 0 0 0.65rem;
+      font-size: 1.05rem;
+      letter-spacing: 0.05em;
+      color: rgba(15, 23, 42, 0.85);
+    }
+
+    .option-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 0.6rem;
+    }
+
+    .option-item {
+      padding: 0.6rem 0.75rem;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.25);
+      color: rgba(15, 23, 42, 0.88);
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      cursor: pointer;
+      transition: transform 0.12s ease, background 0.12s ease;
+    }
+
+    .option-item:hover {
+      background: rgba(226, 232, 240, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .option-item:focus-visible {
+      outline: 2px solid rgba(56, 189, 248, 0.8);
+      outline-offset: 3px;
+    }
+
+    .option-flag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-family: "Fira Code", "Source Code Pro", Consolas, monospace;
+      font-size: 0.95rem;
+      letter-spacing: 0.03em;
+      color: #0f172a;
+    }
+
+    .option-flag code {
+      background: rgba(15, 23, 42, 0.08);
+      padding: 0.1rem 0.4rem;
+      border-radius: 8px;
+    }
+
+    .option-description {
+      margin: 0.4rem 0 0;
+      font-size: 0.9rem;
+      line-height: 1.55;
+      color: rgba(15, 23, 42, 0.78);
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 480px) {
+      .prompt-line {
+        font-size: 1.1rem;
+      }
+
+      .prompt-input {
+        font-size: 1.1rem;
+      }
+
+      .info-panel {
+        margin-top: 1.25rem;
+        padding: 1.25rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="terminal" role="main">
+    <header class="terminal-header">
+      <span class="traffic-light" aria-hidden="true"></span>
+      <span class="traffic-light" aria-hidden="true"></span>
+      <span class="traffic-light" aria-hidden="true"></span>
+      <span aria-hidden="true">SF CLI Emulator</span>
+      <span class="sr-only">Salesforce CLI command helper</span>
+    </header>
+    <section class="terminal-body">
+      <div class="prompt-line">
+        <div class="prompt-prefix" aria-hidden="true">
+          <span>SF</span>
+        </div>
+        <div class="prompt-input-wrapper">
+          <label for="command-input" class="prompt-placeholder">type a command parameter</label>
+          <input
+            id="command-input"
+            class="prompt-input"
+            type="text"
+            name="command"
+            autocomplete="off"
+            spellcheck="false"
+            aria-describedby="command-description"
+            role="textbox"
+          />
+        </div>
+      </div>
+      <article class="info-panel" aria-live="polite">
+        <h2 id="command-title" class="info-heading">
+          <a id="command-doc-link" class="info-heading-link is-disabled" aria-disabled="true">
+            <span id="command-title-text">Available SF Commands</span>
+          </a>
+        </h2>
+        <p id="command-description" class="info-description">
+          Start typing after <strong>SF</strong> to learn what a command does. Partial matches will highlight automatically.
+        </p>
+        <div class="panel-controls">
+          <button id="nav-back" class="nav-back" type="button" hidden>← Back</button>
+          <div class="info-meta"></div>
+        </div>
+        <ul class="command-list" id="command-list"></ul>
+        <div class="options-block" id="options-block" hidden>
+          <h3 class="options-heading">Options &amp; Flags</h3>
+          <ul class="option-list" id="option-list"></ul>
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <script>
+    const COMMANDS = {
+      project: {
+        title: "SF project",
+        description: "Scaffold, configure, and manage Salesforce DX project workspaces including metadata and scratch-org settings.",
+        doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_project_commands_unified.htm",
+        subcommands: {
+          convert: {
+            title: "SF project convert",
+            description: "Convert metadata between source format and Metadata API format for deployments and retrievals.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_project_commands_unified.htm",
+            subcommands: {
+              mdapi: {
+                title: "SF project convert mdapi",
+                description: "Transform Metadata API zip or directory structures into Salesforce DX source format.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_project_commands_unified.htm",
+                options: [
+                  {
+                    shorthand: "-r",
+                    flag: "--root-dir",
+                    description: "Location of the Metadata API package to convert."
+                  },
+                  {
+                    shorthand: "-d",
+                    flag: "--output-dir",
+                    description: "Directory where the converted source format files are written."
+                  },
+                  {
+                    shorthand: "-x",
+                    flag: "--manifest",
+                    description: "Path to a package.xml that selects the components to convert."
+                  },
+                  {
+                    shorthand: "-m",
+                    flag: "--metadata",
+                    description: "Metadata types to convert when you don’t supply a manifest."
+                  },
+                  {
+                    shorthand: "-p",
+                    flag: "--package-dir",
+                    description: "Name of the package directory to update in sfdx-project.json."
+                  },
+                  {
+                    flag: "--json",
+                    description: "Return result details in JSON format."
+                  }
+                ]
+              },
+              source: {
+                title: "SF project convert source",
+                description: "Convert Salesforce DX source format into Metadata API output for deployment packaging.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_project_commands_unified.htm",
+                options: [
+                  {
+                    shorthand: "-r",
+                    flag: "--root-dir",
+                    description: "Root directory that contains the source files you want to convert."
+                  },
+                  {
+                    shorthand: "-d",
+                    flag: "--output-dir",
+                    description: "Directory where the Metadata API bundle should be created."
+                  },
+                  {
+                    shorthand: "-x",
+                    flag: "--manifest",
+                    description: "Path to a package.xml that defines which metadata to convert."
+                  },
+                  {
+                    shorthand: "-m",
+                    flag: "--metadata",
+                    description: "Metadata types or members (type:name) to include in the conversion."
+                  },
+                  {
+                    flag: "--source-dir",
+                    description: "One or more source directories that contain the components to convert."
+                  },
+                  {
+                    flag: "--json",
+                    description: "Return result details in JSON format."
+                  }
+                ]
+              }
+            }
+          },
+          delete: {
+            title: "SF project delete",
+            description: "Delete generated project artifacts such as scratch orgs or configuration directories you no longer need.",
+            options: [
+              {
+                flag: "--target-org",
+                description: "Alias or username for the org whose project artifacts you want to delete."
+              },
+              {
+                flag: "--source-dir",
+                description: "Comma-separated list of source directories to remove from the project."
+              },
+              {
+                flag: "--no-prompt",
+                description: "Skip the confirmation prompt and proceed immediately."
+              },
+              {
+                flag: "--json",
+                description: "Return output in JSON format."
+              }
+            ]
+          },
+          deploy: {
+            title: "SF project deploy",
+            description: "Deploy source from your local project into a target org using the unified deploy workflow.",
+            options: [
+              {
+                shorthand: "-o",
+                flag: "--target-org",
+                description: "Alias or username for the org that will receive the deployment."
+              },
+              {
+                shorthand: "-m",
+                flag: "--metadata",
+                description: "Deploy only the specified metadata types and components (type:name)."
+              },
+              {
+                shorthand: "-x",
+                flag: "--manifest",
+                description: "Use a package.xml file to control the deployed metadata."
+              },
+              {
+                flag: "--source-dir",
+                description: "One or more local source directories that contain the metadata to deploy."
+              },
+              {
+                flag: "--test-level",
+                description: "Set the Apex test execution level such as RunLocalTests or RunSpecifiedTests."
+              },
+              {
+                flag: "--wait",
+                description: "Minutes to wait for the command to finish before timing out."
+              },
+              {
+                flag: "--dry-run",
+                description: "Validate the deployment without committing changes to the org."
+              }
+            ],
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_project_commands_unified.htm",
+            subcommands: {
+              pipeline: {
+                title: "SF project deploy pipeline",
+                description: "Promote a pipeline stage by deploying the associated snapshot to the target org.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_project_commands_unified.htm",
+                options: [
+                  {
+                    flag: "--pipeline",
+                    description: "Name or ID of the DevOps Center pipeline to advance."
+                  },
+                  {
+                    flag: "--stage",
+                    description: "Pipeline stage to deploy to, such as test or prod."
+                  },
+                  {
+                    flag: "--branch",
+                    description: "Git branch whose snapshot should be deployed."
+                  },
+                  {
+                    shorthand: "-o",
+                    flag: "--target-org",
+                    description: "Alias or username for the target org tied to the pipeline stage."
+                  },
+                  {
+                    flag: "--wait",
+                    description: "Minutes to wait for the pipeline deployment to finish."
+                  },
+                  {
+                    flag: "--json",
+                    description: "Return deployment progress in JSON format."
+                  }
+                ]
+              }
+            }
+          },
+          generate: {
+            title: "SF project generate",
+            description: "Generate boilerplate directories, configuration files, and metadata templates for your project.",
+            options: [
+              {
+                shorthand: "-n",
+                flag: "--name",
+                description: "Name for the generated project or component."
+              },
+              {
+                shorthand: "-t",
+                flag: "--template",
+                description: "Template to use, such as standard, empty, or analytics."
+              },
+              {
+                shorthand: "-d",
+                flag: "--output-dir",
+                description: "Directory path where the generated files should be created."
+              },
+              {
+                flag: "--manifest",
+                description: "Generate a package.xml manifest file alongside the scaffold."
+              }
+            ]
+          },
+          list: {
+            title: "SF project list",
+            description: "List project resources and components that are available to build, deploy, or retrieve.",
+            options: [
+              {
+                flag: "--metadata-type",
+                description: "Filter the list by a specific metadata type, such as ApexClass or CustomObject."
+              },
+              {
+                flag: "--target-org",
+                description: "Alias or username for the org that provides the component catalogue."
+              },
+              {
+                flag: "--all",
+                description: "Show results for both deployed and local components when supported."
+              },
+              {
+                flag: "--json",
+                description: "Return the list in JSON format."
+              }
+            ]
+          },
+          reset: {
+            title: "SF project reset",
+            description: "Reset tracked state for scratch orgs or local workspaces to align with the project configuration.",
+            options: [
+              {
+                flag: "--revision",
+                description: "Reset source tracking to a specific revision number."
+              },
+              {
+                flag: "--target-org",
+                description: "Alias or username for the org whose tracking you want to reset."
+              },
+              {
+                flag: "--no-prompt",
+                description: "Skip the confirmation prompt before resetting tracking."
+              },
+              {
+                flag: "--json",
+                description: "Return output in JSON format."
+              }
+            ]
+          },
+          retrieve: {
+            title: "SF project retrieve",
+            description: "Retrieve metadata from a target org into your local project using the unified retrieve workflow.",
+            options: [
+              {
+                shorthand: "-o",
+                flag: "--target-org",
+                description: "Alias or username for the org from which to retrieve metadata."
+              },
+              {
+                shorthand: "-m",
+                flag: "--metadata",
+                description: "Retrieve only specific metadata types and components."
+              },
+              {
+                shorthand: "-x",
+                flag: "--manifest",
+                description: "Use a package.xml file to control the retrieved metadata."
+              },
+              {
+                flag: "--source-dir",
+                description: "Specify local directories where retrieved metadata should be placed."
+              },
+              {
+                flag: "--wait",
+                description: "Minutes to wait for the retrieve to finish before timing out."
+              },
+              {
+                flag: "--unzip",
+                description: "Automatically unzip the retrieved metadata archive into the project structure."
+              }
+            ]
+          }
+        }
+      },
+      org: {
+        title: "SF org",
+        description: "Authenticate to orgs, manage aliases, and streamline target-org selection for all CLI commands.",
+        doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_org_commands_unified.htm",
+        subcommands: {
+          assign: {
+            title: "SF org assign",
+            description: "Assign default usernames, aliases, and org preferences for your CLI workflows.",
+            options: [
+              {
+                shorthand: "-n",
+                flag: "--name",
+                description: "Permission set or preference name to assign to the org user."
+              },
+              {
+                shorthand: "-o",
+                flag: "--target-org",
+                description: "Alias or username for the org that receives the assignment."
+              },
+              {
+                flag: "--api-version",
+                description: "Override the API version used for the assignment call."
+              },
+              {
+                flag: "--no-prompt",
+                description: "Apply the assignment without prompting for confirmation."
+              }
+            ]
+          },
+          create: {
+            title: "SF org create",
+            description: "Create scratch or sandbox orgs from definition files and project configuration.",
+            options: [
+              {
+                shorthand: "-f",
+                flag: "--definition-file",
+                description: "Path to the org definition file that contains features and settings."
+              },
+              {
+                shorthand: "-a",
+                flag: "--alias",
+                description: "Alias to assign to the newly created org for easy reference."
+              },
+              {
+                flag: "--set-default",
+                description: "Set the created org as the default username for future commands."
+              },
+              {
+                flag: "--duration-days",
+                description: "Number of days before a scratch org expires."
+              },
+              {
+                flag: "--target-dev-hub",
+                description: "Alias or username for the Dev Hub that creates the org."
+              },
+              {
+                flag: "--wait",
+                description: "Minutes to wait for the org to finish provisioning."
+              }
+            ]
+          },
+          delete: {
+            title: "SF org delete",
+            description: "Delete scratch orgs or remove expired org records from your local store.",
+            options: [
+              {
+                shorthand: "-o",
+                flag: "--target-org",
+                description: "Alias or username for the org to delete."
+              },
+              {
+                flag: "--target-dev-hub",
+                description: "Alias or username for the Dev Hub that manages the org."
+              },
+              {
+                flag: "--no-prompt",
+                description: "Bypass the confirmation prompt and delete immediately."
+              },
+              {
+                flag: "--json",
+                description: "Return output in JSON format."
+              }
+            ]
+          },
+          display: {
+            title: "SF org display",
+            description: "Display connection details for an org including instance URLs and user information.",
+            options: [
+              {
+                shorthand: "-o",
+                flag: "--target-org",
+                description: "Alias or username for the org whose details you want to view."
+              },
+              {
+                flag: "--verbose",
+                description: "Show additional fields such as SFDX auth URLs and connected app data."
+              },
+              {
+                flag: "--json",
+                description: "Return org details in JSON format."
+              }
+            ]
+          },
+          enable: {
+            title: "SF org enable",
+            description: "Turn on org capabilities that help Salesforce CLI manage source tracking and automation.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_org_commands_unified.htm#sf-org-enable-tracking",
+            subcommands: {
+              tracking: {
+                title: "SF org enable tracking",
+                description: "Allow Salesforce CLI to track source changes between your project and the target org.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_org_commands_unified.htm#sf-org-enable-tracking",
+                options: [
+                  {
+                    shorthand: "-o",
+                    flag: "--target-org",
+                    description: "Username or alias for the org that should store source tracking state."
+                  },
+                  {
+                    flag: "--json",
+                    description: "Return command details in JSON format."
+                  },
+                  {
+                    flag: "--flags-dir",
+                    description: "Import additional flag defaults from a local directory."
+                  }
+                ]
+              }
+            }
+          },
+          generate: {
+            title: "SF org generate",
+            description: "Generate org assets such as scratch-user passwords for local development.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_org_commands_unified.htm#sf-org-generate-password",
+            subcommands: {
+              password: {
+                title: "SF org generate password",
+                description: "Create or rotate the password for scratch org users managed locally.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_org_commands_unified.htm#sf-org-generate-password",
+                options: [
+                  {
+                    shorthand: "-o",
+                    flag: "--target-org",
+                    description: "Username or alias for the scratch org that needs a password."
+                  },
+                  {
+                    shorthand: "-l",
+                    flag: "--length",
+                    description: "Number of characters to include in the generated password (8-100)."
+                  },
+                  {
+                    shorthand: "-c",
+                    flag: "--complexity",
+                    description: "Password strength preset; higher values add more character classes."
+                  },
+                  {
+                    shorthand: "-b",
+                    flag: "--on-behalf-of",
+                    description: "One or more usernames whose passwords should be generated."
+                  },
+                  {
+                    flag: "--api-version",
+                    description: "Override the API version used for the password call."
+                  }
+                ]
+              }
+            }
+          },
+          list: {
+            title: "SF org list",
+            description: "List authenticated orgs with type, alias, and authentication status metadata.",
+            options: [
+              {
+                flag: "--all",
+                description: "Include expired and deleted orgs in the results."
+              },
+              {
+                flag: "--clean",
+                description: "Remove stale and invalid org entries as part of the listing."
+              },
+              {
+                flag: "--json",
+                description: "Return the list in JSON format."
+              }
+            ]
+          },
+          login: {
+            title: "SF org login",
+            description: "Authenticate to Salesforce orgs using interactive or headless authorization flows.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_org_commands_unified.htm#sf-org-login-web",
+            subcommands: {
+              "access-token": {
+                title: "SF org login access-token",
+                description: "Authorize an org with an existing Salesforce access token.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_org_commands_unified.htm#sf-org-login-access-token",
+                options: [
+                  {
+                    shorthand: "-r",
+                    flag: "--instance-url",
+                    description: "Instance URL the access token belongs to."
+                  },
+                  {
+                    shorthand: "-a",
+                    flag: "--alias",
+                    description: "Alias to assign to the authenticated org."
+                  },
+                  {
+                    shorthand: "-d",
+                    flag: "--set-default-dev-hub",
+                    description: "Make the org the default Dev Hub for future commands."
+                  },
+                  {
+                    shorthand: "-s",
+                    flag: "--set-default",
+                    description: "Make the org the default target for org-aware commands."
+                  },
+                  {
+                    shorthand: "-p",
+                    flag: "--no-prompt",
+                    description: "Skip prompts when reusing or overwriting credentials."
+                  }
+                ]
+              },
+              device: {
+                title: "SF org login device",
+                description: "Authorize an org using the device login flow with a verification code.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_org_commands_unified.htm#sf-org-login-device",
+                options: [
+                  {
+                    shorthand: "-i",
+                    flag: "--client-id",
+                    description: "Connected app consumer key for the device flow."
+                  },
+                  {
+                    shorthand: "-r",
+                    flag: "--instance-url",
+                    description: "Instance URL where the org resides."
+                  },
+                  {
+                    shorthand: "-a",
+                    flag: "--alias",
+                    description: "Alias to save with the authenticated org."
+                  },
+                  {
+                    shorthand: "-d",
+                    flag: "--set-default-dev-hub",
+                    description: "Make the org the default Dev Hub."
+                  },
+                  {
+                    shorthand: "-s",
+                    flag: "--set-default",
+                    description: "Make the org the default target for subsequent commands."
+                  }
+                ]
+              },
+              jwt: {
+                title: "SF org login jwt",
+                description: "Log in with a JWT and connected app credentials for automation.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_org_commands_unified.htm#sf-org-login-jwt",
+                options: [
+                  {
+                    shorthand: "-o",
+                    flag: "--username",
+                    description: "Username of the user to authenticate with JWT."
+                  },
+                  {
+                    shorthand: "-f",
+                    flag: "--jwt-key-file",
+                    description: "Path to the private key file used to sign the JWT."
+                  },
+                  {
+                    shorthand: "-i",
+                    flag: "--client-id",
+                    description: "Connected app consumer key for the JWT flow."
+                  },
+                  {
+                    shorthand: "-r",
+                    flag: "--instance-url",
+                    description: "Instance URL for the org."
+                  },
+                  {
+                    shorthand: "-a",
+                    flag: "--alias",
+                    description: "Alias to assign to the authenticated org."
+                  },
+                  {
+                    shorthand: "-d",
+                    flag: "--set-default-dev-hub",
+                    description: "Set the authenticated org as the default Dev Hub."
+                  },
+                  {
+                    shorthand: "-s",
+                    flag: "--set-default",
+                    description: "Set the authenticated org as the default target."
+                  }
+                ]
+              },
+              "sfdx-url": {
+                title: "SF org login sfdx-url",
+                description: "Authorize using a stored Salesforce DX authorization URL.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_org_commands_unified.htm#sf-org-login-sfdx-url",
+                options: [
+                  {
+                    shorthand: "-f",
+                    flag: "--sfdx-url-file",
+                    description: "Path to a file that contains the SFDX auth URL."
+                  },
+                  {
+                    shorthand: "-u",
+                    flag: "--sfdx-url-stdin",
+                    description: "Read the SFDX auth URL from standard input."
+                  },
+                  {
+                    shorthand: "-a",
+                    flag: "--alias",
+                    description: "Alias to apply to the authenticated org."
+                  },
+                  {
+                    shorthand: "-d",
+                    flag: "--set-default-dev-hub",
+                    description: "Set the authenticated org as the default Dev Hub."
+                  },
+                  {
+                    shorthand: "-s",
+                    flag: "--set-default",
+                    description: "Set the authenticated org as the default target."
+                  }
+                ]
+              },
+              web: {
+                title: "SF org login web",
+                description: "Open a browser and authorize an org with the standard web login flow.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_org_commands_unified.htm#sf-org-login-web",
+                options: [
+                  {
+                    shorthand: "-b",
+                    flag: "--browser",
+                    description: "Which browser to use when launching the login screen."
+                  },
+                  {
+                    shorthand: "-i",
+                    flag: "--client-id",
+                    description: "Connected app consumer key for the web login flow."
+                  },
+                  {
+                    shorthand: "-r",
+                    flag: "--instance-url",
+                    description: "Instance URL that hosts the org."
+                  },
+                  {
+                    shorthand: "-a",
+                    flag: "--alias",
+                    description: "Alias to assign to the authenticated org."
+                  },
+                  {
+                    shorthand: "-d",
+                    flag: "--set-default-dev-hub",
+                    description: "Make the org the default Dev Hub."
+                  },
+                  {
+                    shorthand: "-s",
+                    flag: "--set-default",
+                    description: "Set the org as the default target org."
+                  },
+                  {
+                    shorthand: "-c",
+                    flag: "--client-app",
+                    description: "Name to store the link between a connected app and the authenticated user."
+                  },
+                  {
+                    flag: "--username",
+                    description: "Existing username to associate with the connected or external client app."
+                  },
+                  {
+                    flag: "--scopes",
+                    description: "Space-separated OAuth scopes to request during login."
+                  }
+                ]
+              }
+            }
+          },
+          logout: {
+            title: "SF org logout",
+            description: "Revoke stored credentials for one or more authenticated orgs.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_org_commands_unified.htm#sf-org-logout",
+            options: [
+              {
+                shorthand: "-o",
+                flag: "--target-org",
+                description: "Username or alias for the org to log out of."
+              },
+              {
+                shorthand: "-a",
+                flag: "--all",
+                description: "Log out of every authenticated org on this machine."
+              },
+              {
+                shorthand: "-c",
+                flag: "--client-app",
+                description: "Name of the client app authorization to revoke."
+              },
+              {
+                shorthand: "-p",
+                flag: "--no-prompt",
+                description: "Skip confirmation prompts when removing org authorizations."
+              }
+            ]
+          },
+          open: {
+            title: "SF org open",
+            description: "Launch the selected org in your default browser with optional paths and parameters.",
+            options: [
+              {
+                shorthand: "-o",
+                flag: "--target-org",
+                description: "Alias or username for the org to open."
+              },
+              {
+                flag: "--path",
+                description: "Open the org to a relative path such as /lightning/setup."
+              },
+              {
+                flag: "--url-only",
+                description: "Return the generated URL without launching a browser."
+              },
+              {
+                flag: "--browser",
+                description: "Explicitly choose which browser to use for the session."
+              }
+            ]
+          },
+          refresh: {
+            title: "SF org refresh",
+            description: "Refresh sandbox metadata and configuration from a source org.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_org_commands_unified.htm#sf-org-refresh-sandbox",
+            subcommands: {
+              sandbox: {
+                title: "SF org refresh sandbox",
+                description: "Request a sandbox refresh using the sandbox name or definition file.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_org_commands_unified.htm#sf-org-refresh-sandbox",
+                options: [
+                  {
+                    shorthand: "-o",
+                    flag: "--target-org",
+                    description: "Production org username or alias that owns the sandbox license."
+                  },
+                  {
+                    shorthand: "-n",
+                    flag: "--name",
+                    description: "Name of the sandbox you want to refresh."
+                  },
+                  {
+                    shorthand: "-f",
+                    flag: "--definition-file",
+                    description: "Sandbox definition file to override configuration during refresh."
+                  },
+                  {
+                    shorthand: "-w",
+                    flag: "--wait",
+                    description: "Minutes to wait while polling refresh status."
+                  },
+                  {
+                    shorthand: "-i",
+                    flag: "--poll-interval",
+                    description: "Seconds between status polling checks."
+                  },
+                  {
+                    flag: "--async",
+                    description: "Submit the refresh request and return immediately."
+                  },
+                  {
+                    flag: "--no-auto-activate",
+                    description: "Prevent automatic activation once the refresh completes."
+                  },
+                  {
+                    flag: "--no-prompt",
+                    description: "Bypass confirmation prompts before refreshing."
+                  },
+                  {
+                    flag: "--source-sandbox-name",
+                    description: "Name of a sandbox to use as the source for the refreshed org."
+                  },
+                  {
+                    flag: "--source-id",
+                    description: "Org ID to use as the new source org for the refreshed sandbox."
+                  }
+                ]
+              }
+            }
+          },
+          resume: {
+            title: "SF org resume",
+            description: "Resume an in-progress org creation or authentication flow for scratch and sandbox orgs.",
+            options: [
+              {
+                shorthand: "-o",
+                flag: "--target-org",
+                description: "Alias or username for the org whose provisioning you want to resume."
+              },
+              {
+                flag: "--use-most-recent",
+                description: "Resume the most recent pending org operation when no job ID is provided."
+              },
+              {
+                flag: "--api-version",
+                description: "Override the API version used during the resume call."
+              },
+              {
+                flag: "--no-prompt",
+                description: "Skip confirmation when resuming the request."
+              }
+            ]
+          },
+          status: {
+            title: "SF org status",
+            description: "Check the status of scratch org creation or sandbox copy operations.",
+            options: [
+              {
+                shorthand: "-o",
+                flag: "--target-org",
+                description: "Alias or username for the org associated with the provisioning job."
+              },
+              {
+                flag: "--job-id",
+                description: "Explicit job ID to check when resuming multiple concurrent requests."
+              },
+              {
+                flag: "--json",
+                description: "Return status information in JSON format."
+              },
+              {
+                flag: "--verbose",
+                description: "Show detailed provisioning logs and progress information."
+              }
+            ]
+          }
+        }
+      },
+      config: {
+        title: "SF config",
+        description: "Read, set, and unset Salesforce CLI configuration values such as default orgs and API versions.",
+        doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_config_commands_unified.htm",
+        subcommands: {
+          get: {
+            title: "SF config get",
+            description: "Retrieve one or more CLI configuration values currently in effect.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_config_commands_unified.htm#sf-config-get",
+            options: [
+              {
+                flag: "--verbose",
+                description: "Show detailed information including the scope for each setting."
+              },
+              {
+                flag: "--json",
+                description: "Return configuration values in JSON format."
+              },
+              {
+                flag: "--flags-dir",
+                description: "Import default flag values from a directory."
+              }
+            ]
+          },
+          list: {
+            title: "SF config list",
+            description: "List all resolved configuration items including global and local overrides.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_config_commands_unified.htm#sf-config-list",
+            options: [
+              {
+                flag: "--verbose",
+                description: "Show the origin scope for each configuration value."
+              },
+              {
+                flag: "--json",
+                description: "Return the configuration list in JSON format."
+              },
+              {
+                flag: "--flags-dir",
+                description: "Import default flag values from a directory."
+              }
+            ]
+          },
+          set: {
+            title: "SF config set",
+            description: "Set CLI configuration values such as default orgs, API versions, and output formats.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_config_commands_unified.htm#sf-config-set",
+            options: [
+              {
+                flag: "--global",
+                description: "Persist the value to the global (user-level) configuration file."
+              },
+              {
+                flag: "--json",
+                description: "Return operation details in JSON format."
+              },
+              {
+                flag: "--flags-dir",
+                description: "Import default flag values from a directory."
+              }
+            ]
+          },
+          unset: {
+            title: "SF config unset",
+            description: "Remove configuration values so the CLI falls back to defaults or global settings.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_config_commands_unified.htm#sf-config-unset",
+            options: [
+              {
+                flag: "--global",
+                description: "Remove the value from the global configuration scope."
+              },
+              {
+                flag: "--json",
+                description: "Return operation details in JSON format."
+              },
+              {
+                flag: "--flags-dir",
+                description: "Import default flag values from a directory."
+              }
+            ]
+          }
+        }
+      },
+      package: {
+        title: "SF package",
+        description: "Create, version, and promote unlocked or managed packages to deliver metadata across environments.",
+        doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm",
+        subcommands: {
+          convert: {
+            title: "SF package convert",
+            description: "Convert a package version request into an installable package version.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-convert",
+            options: [
+              {
+                shorthand: "-p",
+                flag: "--package",
+                description: "Package version request (0HD) or package (0Ho) identifier to convert."
+              },
+              {
+                shorthand: "-v",
+                flag: "--target-dev-hub",
+                description: "Alias or username for the Dev Hub that owns the package."
+              },
+              {
+                shorthand: "-k",
+                flag: "--installation-key",
+                description: "Installation key to apply to the converted version."
+              },
+              {
+                flag: "--api-version",
+                description: "Override the API version for the convert call."
+              }
+            ]
+          },
+          create: {
+            title: "SF package create",
+            description: "Create a new package record in your Dev Hub.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-create",
+            options: [
+              {
+                shorthand: "-n",
+                flag: "--name",
+                description: "Name of the package to create."
+              },
+              {
+                shorthand: "-t",
+                flag: "--package-type",
+                description: "Package type, such as Managed or Unlocked."
+              },
+              {
+                shorthand: "-r",
+                flag: "--path",
+                description: "Project directory that defines the package metadata."
+              },
+              {
+                flag: "--description",
+                description: "Optional description for the package."
+              },
+              {
+                shorthand: "-v",
+                flag: "--target-dev-hub",
+                description: "Alias or username for the Dev Hub where the package lives."
+              }
+            ]
+          },
+          delete: {
+            title: "SF package delete",
+            description: "Mark a package for deletion in the Dev Hub.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-delete",
+            options: [
+              {
+                shorthand: "-p",
+                flag: "--package",
+                description: "Package alias or ID to delete."
+              },
+              {
+                shorthand: "-v",
+                flag: "--target-dev-hub",
+                description: "Alias or username for the Dev Hub that owns the package."
+              },
+              {
+                flag: "--no-prompt",
+                description: "Skip the confirmation prompt before deleting."
+              },
+              {
+                flag: "--api-version",
+                description: "Override the API version used for the delete call."
+              }
+            ]
+          },
+          install: {
+            title: "SF package install",
+            description: "Install a package version into a subscriber org.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-install",
+            options: [
+              {
+                shorthand: "-p",
+                flag: "--package",
+                description: "Package version alias or ID (04t) to install."
+              },
+              {
+                shorthand: "-o",
+                flag: "--target-org",
+                description: "Alias or username for the org that receives the package."
+              },
+              {
+                shorthand: "-k",
+                flag: "--installation-key",
+                description: "Installation key for locked package versions."
+              },
+              {
+                flag: "--security-type",
+                description: "Install security level (AllUsers or AdminsOnly)."
+              },
+              {
+                flag: "--apex-compile",
+                description: "Whether to compile all Apex in the org or only the package Apex."
+              },
+              {
+                shorthand: "-w",
+                flag: "--wait",
+                description: "Minutes to wait for the installation to finish."
+              }
+            ]
+          },
+          "install report": {
+            title: "SF package install report",
+            description: "Check the status of a package installation request.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-install-report",
+            options: [
+              {
+                shorthand: "-i",
+                flag: "--request-id",
+                description: "Installation request ID (0Hf) to inspect."
+              },
+              {
+                shorthand: "-o",
+                flag: "--target-org",
+                description: "Alias or username for the org where the installation ran."
+              }
+            ]
+          },
+          "installed list": {
+            title: "SF package installed list",
+            description: "List packages currently installed in a subscriber org.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-installed-list",
+            options: [
+              {
+                shorthand: "-o",
+                flag: "--target-org",
+                description: "Alias or username for the org to inspect."
+              },
+              {
+                flag: "--packages",
+                description: "Filter by package aliases or IDs."
+              },
+              {
+                flag: "--verbose",
+                description: "Show install dates, status, and other metadata."
+              }
+            ]
+          },
+          list: {
+            title: "SF package list",
+            description: "List packages defined in a Dev Hub org.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-list",
+            options: [
+              {
+                shorthand: "-v",
+                flag: "--target-dev-hub",
+                description: "Alias or username for the Dev Hub to query."
+              },
+              {
+                flag: "--verbose",
+                description: "Include additional package metadata in the output."
+              }
+            ]
+          },
+          "push-upgrade": {
+            title: "SF package push-upgrade",
+            description: "Manage scheduled push upgrades for managed packages.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-push-upgrade-list",
+            subcommands: {
+              abort: {
+                title: "SF package push-upgrade abort",
+                description: "Cancel a scheduled push upgrade request.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-push-upgrade-abort",
+                options: [
+                  {
+                    shorthand: "-i",
+                    flag: "--push-request-id",
+                    description: "Push upgrade request ID to abort."
+                  },
+                  {
+                    shorthand: "-v",
+                    flag: "--target-dev-hub",
+                    description: "Alias or username for the Dev Hub managing the push."
+                  }
+                ]
+              },
+              list: {
+                title: "SF package push-upgrade list",
+                description: "List push upgrade requests for a package or package version.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-push-upgrade-list",
+                options: [
+                  {
+                    shorthand: "-p",
+                    flag: "--package",
+                    description: "Package (0Ho) or package version (04t) to examine."
+                  },
+                  {
+                    shorthand: "-v",
+                    flag: "--target-dev-hub",
+                    description: "Alias or username for the Dev Hub."
+                  },
+                  {
+                    flag: "--scheduled-last-days",
+                    description: "Filter requests scheduled within the last N days."
+                  },
+                  {
+                    flag: "--status",
+                    description: "Filter results by request status."
+                  }
+                ]
+              },
+              report: {
+                title: "SF package push-upgrade report",
+                description: "Display details for a push upgrade request.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-push-upgrade-report",
+                options: [
+                  {
+                    shorthand: "-i",
+                    flag: "--push-request-id",
+                    description: "Push upgrade request ID to report on."
+                  },
+                  {
+                    shorthand: "-v",
+                    flag: "--target-dev-hub",
+                    description: "Alias or username for the Dev Hub."
+                  },
+                  {
+                    flag: "--subscriber-org",
+                    description: "Subscriber org ID to filter report output."
+                  }
+                ]
+              },
+              schedule: {
+                title: "SF package push-upgrade schedule",
+                description: "Schedule a push upgrade for a managed package version.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-push-upgrade-schedule",
+                options: [
+                  {
+                    shorthand: "-p",
+                    flag: "--package",
+                    description: "Package version (04t) that you want to push."
+                  },
+                  {
+                    shorthand: "-v",
+                    flag: "--target-dev-hub",
+                    description: "Alias or username for the Dev Hub owning the package."
+                  },
+                  {
+                    flag: "--start-time",
+                    description: "Date and time when the push upgrade should begin."
+                  },
+                  {
+                    flag: "--frequency",
+                    description: "Repeat frequency for the push (once, daily, weekly)."
+                  },
+                  {
+                    flag: "--release-version",
+                    description: "Package version to push, if different from the current default."
+                  }
+                ]
+              }
+            }
+          },
+          uninstall: {
+            title: "SF package uninstall",
+            description: "Uninstall a package version from a subscriber org.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-uninstall",
+            options: [
+              {
+                shorthand: "-p",
+                flag: "--package",
+                description: "Package version alias or ID to uninstall."
+              },
+              {
+                shorthand: "-o",
+                flag: "--target-org",
+                description: "Alias or username for the org the package is being removed from."
+              },
+              {
+                shorthand: "-w",
+                flag: "--wait",
+                description: "Minutes to wait for the uninstall to complete."
+              },
+              {
+                flag: "--no-prompt",
+                description: "Skip confirmation prompts before uninstalling."
+              }
+            ]
+          },
+          "uninstall report": {
+            title: "SF package uninstall report",
+            description: "Check the status of a package uninstall request.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-uninstall-report",
+            options: [
+              {
+                shorthand: "-i",
+                flag: "--request-id",
+                description: "Uninstall request ID (0Hf) to inspect."
+              },
+              {
+                shorthand: "-o",
+                flag: "--target-org",
+                description: "Alias or username for the org that ran the uninstall."
+              }
+            ]
+          },
+          update: {
+            title: "SF package update",
+            description: "Update descriptive fields on an existing package.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-update",
+            options: [
+              {
+                shorthand: "-p",
+                flag: "--package",
+                description: "Package alias or ID to update."
+              },
+              {
+                shorthand: "-n",
+                flag: "--name",
+                description: "New name for the package."
+              },
+              {
+                shorthand: "-d",
+                flag: "--description",
+                description: "Updated package description."
+              },
+              {
+                shorthand: "-v",
+                flag: "--target-dev-hub",
+                description: "Alias or username for the Dev Hub where the package lives."
+              }
+            ]
+          },
+          version: {
+            title: "SF package version",
+            description: "Manage second-generation package versions.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-version-create",
+            subcommands: {
+              create: {
+                title: "SF package version create",
+                description: "Submit a request to create a package version from source.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-version-create",
+                options: [
+                  {
+                    shorthand: "-p",
+                    flag: "--package",
+                    description: "Package alias or ID whose version you want to create."
+                  },
+                  {
+                    shorthand: "-d",
+                    flag: "--path",
+                    description: "Source path that defines the package metadata."
+                  },
+                  {
+                    shorthand: "-k",
+                    flag: "--installation-key",
+                    description: "Installation key to set on the new version."
+                  },
+                  {
+                    shorthand: "-t",
+                    flag: "--tag",
+                    description: "Tag or label to associate with the version."
+                  },
+                  {
+                    shorthand: "-w",
+                    flag: "--wait",
+                    description: "Minutes to wait for the version creation request to finish."
+                  }
+                ]
+              },
+              "create list": {
+                title: "SF package version create list",
+                description: "List package version creation requests in the Dev Hub.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-version-create-list",
+                options: [
+                  {
+                    shorthand: "-p",
+                    flag: "--package",
+                    description: "Package alias or ID to filter requests."
+                  },
+                  {
+                    shorthand: "-v",
+                    flag: "--target-dev-hub",
+                    description: "Alias or username for the Dev Hub owning the requests."
+                  }
+                ]
+              },
+              "create report": {
+                title: "SF package version create report",
+                description: "View details for a package version create request.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-version-create-report",
+                options: [
+                  {
+                    shorthand: "-i",
+                    flag: "--request-id",
+                    description: "Create request ID (0HD/0Hf) to report on."
+                  },
+                  {
+                    shorthand: "-v",
+                    flag: "--target-dev-hub",
+                    description: "Alias or username for the Dev Hub."
+                  }
+                ]
+              },
+              delete: {
+                title: "SF package version delete",
+                description: "Delete an unreleased package version from the Dev Hub.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-version-delete",
+                options: [
+                  {
+                    shorthand: "-p",
+                    flag: "--package",
+                    description: "Package version alias or ID to delete."
+                  },
+                  {
+                    shorthand: "-v",
+                    flag: "--target-dev-hub",
+                    description: "Alias or username for the Dev Hub."
+                  },
+                  {
+                    flag: "--no-prompt",
+                    description: "Skip confirmation before deleting."
+                  }
+                ]
+              },
+              displayancestry: {
+                title: "SF package version displayancestry",
+                description: "Display the ancestry for a given package version.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-version-displayancestry",
+                options: [
+                  {
+                    shorthand: "-p",
+                    flag: "--package",
+                    description: "Package version alias or ID to inspect."
+                  },
+                  {
+                    shorthand: "-v",
+                    flag: "--target-dev-hub",
+                    description: "Alias or username for the Dev Hub."
+                  }
+                ]
+              },
+              displaydependencies: {
+                title: "SF package version displaydependencies",
+                description: "Show dependency graph information for a package version.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-version-displaydependencies",
+                options: [
+                  {
+                    shorthand: "-p",
+                    flag: "--package",
+                    description: "Package version alias or ID to inspect."
+                  },
+                  {
+                    shorthand: "-v",
+                    flag: "--target-dev-hub",
+                    description: "Alias or username for the Dev Hub."
+                  },
+                  {
+                    flag: "--edge-direction",
+                    description: "Direction to traverse dependencies (root-first or root-last)."
+                  }
+                ]
+              },
+              list: {
+                title: "SF package version list",
+                description: "List package versions stored in a Dev Hub.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-version-list",
+                options: [
+                  {
+                    shorthand: "-v",
+                    flag: "--target-dev-hub",
+                    description: "Alias or username for the Dev Hub to query."
+                  },
+                  {
+                    flag: "--packages",
+                    description: "Comma-separated list of package aliases or IDs to filter."
+                  },
+                  {
+                    flag: "--created-last-days",
+                    description: "Limit results to versions created in the last N days."
+                  },
+                  {
+                    flag: "--released",
+                    description: "Show only released versions."
+                  },
+                  {
+                    flag: "--concise",
+                    description: "Return a condensed field set."
+                  }
+                ]
+              },
+              promote: {
+                title: "SF package version promote",
+                description: "Promote a package version to released status.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-version-promote",
+                options: [
+                  {
+                    shorthand: "-p",
+                    flag: "--package",
+                    description: "Package version alias or ID to promote."
+                  },
+                  {
+                    shorthand: "-v",
+                    flag: "--target-dev-hub",
+                    description: "Alias or username for the Dev Hub."
+                  },
+                  {
+                    flag: "--no-prompt",
+                    description: "Skip confirmation prompts before promoting."
+                  }
+                ]
+              },
+              report: {
+                title: "SF package version report",
+                description: "Display metadata about a specific package version.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-version-report",
+                options: [
+                  {
+                    shorthand: "-p",
+                    flag: "--package",
+                    description: "Package version alias or ID to report on."
+                  },
+                  {
+                    shorthand: "-v",
+                    flag: "--target-dev-hub",
+                    description: "Alias or username for the Dev Hub."
+                  },
+                  {
+                    flag: "--verbose",
+                    description: "Include computed metadata such as ancestors and dependencies."
+                  }
+                ]
+              },
+              update: {
+                title: "SF package version update",
+                description: "Update descriptive metadata on a package version.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package-version-update",
+                options: [
+                  {
+                    shorthand: "-p",
+                    flag: "--package",
+                    description: "Package version alias or ID to update."
+                  },
+                  {
+                    shorthand: "-b",
+                    flag: "--branch",
+                    description: "Branch name associated with the package version."
+                  },
+                  {
+                    shorthand: "-t",
+                    flag: "--tag",
+                    description: "Tag to apply to the package version."
+                  },
+                  {
+                    shorthand: "-d",
+                    flag: "--version-description",
+                    description: "Human-readable description for the package version."
+                  },
+                  {
+                    shorthand: "-v",
+                    flag: "--target-dev-hub",
+                    description: "Alias or username for the Dev Hub."
+                  }
+                ]
+              }
+            }
+          },
+          "package1 version": {
+            title: "SF package1 version",
+            description: "Manage first-generation (package1) versions.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package1-version-create",
+            subcommands: {
+              create: {
+                title: "SF package1 version create",
+                description: "Create a first-generation package version in a packaging org.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package1-version-create",
+                options: [
+                  {
+                    shorthand: "-o",
+                    flag: "--target-org",
+                    description: "Packaging org alias or username."
+                  },
+                  {
+                    shorthand: "-i",
+                    flag: "--package-id",
+                    description: "Package ID (033) to version."
+                  },
+                  {
+                    shorthand: "-n",
+                    flag: "--name",
+                    description: "Name for the package1 version."
+                  },
+                  {
+                    shorthand: "-d",
+                    flag: "--description",
+                    description: "Description for the package1 version."
+                  },
+                  {
+                    shorthand: "-w",
+                    flag: "--wait",
+                    description: "Minutes to wait for the creation to complete."
+                  }
+                ]
+              },
+              "create get": {
+                title: "SF package1 version create get",
+                description: "Check the status of a package1 version create request.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package1-version-create-get",
+                options: [
+                  {
+                    shorthand: "-i",
+                    flag: "--request-id",
+                    description: "Package1 version create request ID to inspect."
+                  },
+                  {
+                    shorthand: "-o",
+                    flag: "--target-org",
+                    description: "Packaging org alias or username."
+                  }
+                ]
+              },
+              display: {
+                title: "SF package1 version display",
+                description: "Display details about a package1 version.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package1-version-display",
+                options: [
+                  {
+                    shorthand: "-i",
+                    flag: "--package-version-id",
+                    description: "Package1 version ID (04t) to inspect."
+                  },
+                  {
+                    shorthand: "-o",
+                    flag: "--target-org",
+                    description: "Packaging org alias or username."
+                  }
+                ]
+              },
+              list: {
+                title: "SF package1 version list",
+                description: "List package1 versions in a packaging org.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_package_commands_unified.htm#sf-package1-version-list",
+                options: [
+                  {
+                    shorthand: "-o",
+                    flag: "--target-org",
+                    description: "Packaging org alias or username."
+                  },
+                  {
+                    shorthand: "-i",
+                    flag: "--package-id",
+                    description: "Package ID to filter the list."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      data: {
+        title: "SF data",
+        description: "Import, export, and mutate Salesforce records with CSV files or inline payloads for rapid data operations.",
+        doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm",
+        subcommands: {
+          bulk: {
+            title: "SF data bulk",
+            description: "Operate on large volumes of records using Bulk API jobs.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-bulk-results",
+            subcommands: {
+              results: {
+                title: "SF data bulk results",
+                description: "Retrieve the results for a completed bulk job.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-bulk-results",
+                options: [
+                  {"flag": "--job-id", "shorthand": "-i", "description": "ID of the bulk job to fetch results for."},
+                  {"flag": "--target-org", "shorthand": "-o", "description": "Alias or username for the org that ran the job."},
+                  {"flag": "--api-version", "description": "Override the API version used for the call."}
+                ]
+              }
+            }
+          },
+          "create file": {
+            title: "SF data create file",
+            description: "Create a ContentVersion record by uploading a local file.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-create-file",
+            options: [
+              {"flag": "--file", "shorthand": "-f", "description": "Path to the file to upload."},
+              {"flag": "--target-org", "shorthand": "-o", "description": "Alias or username for the org that receives the file."},
+              {"flag": "--title", "shorthand": "-t", "description": "Title to assign to the uploaded file."}
+            ]
+          },
+          "create record": {
+            title: "SF data create record",
+            description: "Create a single record by providing field-value pairs.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-create-record",
+            options: [
+              {"flag": "--sobject", "shorthand": "-s", "description": "API name of the object to create."},
+              {"flag": "--values", "shorthand": "-v", "description": "Field-value pairs in the format Field=Value."},
+              {"flag": "--target-org", "shorthand": "-o", "description": "Alias or username for the target org."},
+              {"flag": "--use-tooling-api", "description": "Use the Tooling API instead of the REST API."}
+            ]
+          },
+          "delete bulk": {
+            title: "SF data delete bulk",
+            description: "Delete records in bulk using the Bulk API.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-delete-bulk",
+            options: [
+              {"flag": "--sobject", "shorthand": "-s", "description": "API name of the object containing the records."},
+              {"flag": "--file", "description": "CSV file that lists record IDs to delete."},
+              {"flag": "--target-org", "shorthand": "-o", "description": "Alias or username for the org running the job."},
+              {"flag": "--wait", "shorthand": "-w", "description": "Minutes to wait for the job to finish."},
+              {"flag": "--async", "shorthand": "-a", "description": "Run asynchronously and return immediately."}
+            ]
+          },
+          "delete record": {
+            title: "SF data delete record",
+            description: "Delete a single record by ID or WHERE clause.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-delete-record",
+            options: [
+              {"flag": "--sobject", "shorthand": "-s", "description": "API name of the object that contains the record."},
+              {"flag": "--record-id", "shorthand": "-i", "description": "ID of the record to delete."},
+              {"flag": "--where", "description": "SOQL WHERE clause to identify records to delete."},
+              {"flag": "--target-org", "shorthand": "-o", "description": "Alias or username for the org that stores the record."}
+            ]
+          },
+          "delete resume": {
+            title: "SF data delete resume",
+            description: "Resume a bulk delete job that was previously started.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-delete-resume",
+            options: [
+              {"flag": "--job-id", "shorthand": "-i", "description": "Job ID returned when the delete job was run."},
+              {"flag": "--use-most-recent", "description": "Resume the most recent bulk delete job."},
+              {"flag": "--target-org", "shorthand": "-o", "description": "Alias or username for the org."}
+            ]
+          },
+          "export bulk": {
+            title: "SF data export bulk",
+            description: "Export data by running a Bulk API query.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-export-bulk",
+            options: [
+              {"flag": "--query", "description": "SOQL query to execute."},
+              {"flag": "--output-file", "description": "File path where results should be written."},
+              {"flag": "--result-format", "shorthand": "-r", "description": "Format for results (csv or json)."},
+              {"flag": "--target-org", "shorthand": "-o", "description": "Alias or username for the org."},
+              {"flag": "--wait", "shorthand": "-w", "description": "Minutes to wait before timing out."}
+            ]
+          },
+          "export resume": {
+            title: "SF data export resume",
+            description: "Resume an export job started with bulk export.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-export-resume",
+            options: [
+              {"flag": "--job-id", "shorthand": "-i", "description": "Job ID returned when the export was started."},
+              {"flag": "--use-most-recent", "description": "Resume the most recently run export job."}
+            ]
+          },
+          "export tree": {
+            title: "SF data export tree",
+            description: "Export related records into JSON files that preserve relationships.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-export-tree",
+            options: [
+              {"flag": "--query", "shorthand": "-q", "description": "SOQL query or query file path."},
+              {"flag": "--output-dir", "description": "Directory where exported JSON files are written."},
+              {"flag": "--plan", "description": "Generate a plan file for import tree operations."},
+              {"flag": "--prefix", "description": "Filename prefix for generated files."},
+              {"flag": "--target-org", "shorthand": "-o", "description": "Alias or username for the org."}
+            ]
+          },
+          "get record": {
+            title: "SF data get record",
+            description: "Retrieve a record by ID and show specified fields.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-get-record",
+            options: [
+              {"flag": "--sobject", "shorthand": "-s", "description": "API name of the object."},
+              {"flag": "--record-id", "shorthand": "-i", "description": "Record ID to retrieve."},
+              {"flag": "--fields", "description": "Comma-separated list of fields to display."},
+              {"flag": "--target-org", "shorthand": "-o", "description": "Alias or username for the org."}
+            ]
+          },
+          "import bulk": {
+            title: "SF data import bulk",
+            description: "Import data in bulk using a Bulk API ingest job.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-import-bulk",
+            options: [
+              {"flag": "--file", "description": "CSV file that contains data to import."},
+              {"flag": "--sobject", "shorthand": "-s", "description": "API name of the object."},
+              {"flag": "--target-org", "shorthand": "-o", "description": "Alias or username for the org."},
+              {"flag": "--wait", "shorthand": "-w", "description": "Minutes to wait for the import to finish."}
+            ]
+          },
+          "import resume": {
+            title: "SF data import resume",
+            description: "Resume a bulk import job started earlier.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-import-resume",
+            options: [
+              {"flag": "--job-id", "shorthand": "-i", "description": "Bulk import job ID."},
+              {"flag": "--use-most-recent", "description": "Resume the most recent bulk import job."}
+            ]
+          },
+          "import tree": {
+            title: "SF data import tree",
+            description: "Import JSON files created with data export tree.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-import-tree",
+            options: [
+              {"flag": "--sobject", "shorthand": "-s", "description": "API name for the root object."},
+              {"flag": "--files", "description": "Comma-separated list of JSON files to import."},
+              {"flag": "--plan", "description": "Plan file produced during export tree."},
+              {"flag": "--target-org", "shorthand": "-o", "description": "Alias or username for the org."}
+            ]
+          },
+          query: {
+            title: "SF data query",
+            description: "Run a SOQL query and display results in various formats.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-query",
+            options: [
+              {"flag": "--query", "description": "SOQL query string to execute."},
+              {"flag": "--target-org", "shorthand": "-o", "description": "Alias or username for the org to query."},
+              {"flag": "--async", "description": "Run the query asynchronously as a bulk job."},
+              {"flag": "--result-format", "description": "Output format such as csv, json, or table."},
+              {"flag": "--wait", "shorthand": "-w", "description": "Minutes to wait for the query to finish."}
+            ]
+          },
+          resume: {
+            title: "SF data resume",
+            description: "Resume the most recent bulk data ingest or export job.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-resume",
+            options: [
+              {"flag": "--job-id", "shorthand": "-i", "description": "Bulk job ID to resume."},
+              {"flag": "--use-most-recent", "description": "Resume the most recently run data job."},
+              {"flag": "--target-org", "shorthand": "-o", "description": "Alias or username for the org."}
+            ]
+          },
+          search: {
+            title: "SF data search",
+            description: "Execute SOSL queries against your org.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-search",
+            options: [
+              {"flag": "--sosl", "description": "SOSL search string to execute."},
+              {"flag": "--target-org", "shorthand": "-o", "description": "Alias or username for the org."},
+              {"flag": "--json", "description": "Return results in JSON format."}
+            ]
+          },
+          "update bulk": {
+            title: "SF data update bulk",
+            description: "Update records in bulk using CSV data.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-update-bulk",
+            options: [
+              {"flag": "--file", "description": "CSV file containing record IDs and field values."},
+              {"flag": "--sobject", "shorthand": "-s", "description": "API name of the object to update."},
+              {"flag": "--target-org", "shorthand": "-o", "description": "Alias or username for the org."},
+              {"flag": "--wait", "shorthand": "-w", "description": "Minutes to wait for the update to finish."}
+            ]
+          },
+          "update record": {
+            title: "SF data update record",
+            description: "Update a single record by ID or WHERE clause.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-update-record",
+            options: [
+              {"flag": "--sobject", "shorthand": "-s", "description": "API name of the object."},
+              {"flag": "--record-id", "shorthand": "-i", "description": "Record ID to update."},
+              {"flag": "--where", "description": "SOQL WHERE clause specifying records to update."},
+              {"flag": "--values", "description": "Field-value pairs to apply, formatted as Field=Value."},
+              {"flag": "--target-org", "shorthand": "-o", "description": "Alias or username for the org."}
+            ]
+          },
+          "update resume": {
+            title: "SF data update resume",
+            description: "Resume a bulk update job started previously.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-update-resume",
+            options: [
+              {"flag": "--job-id", "shorthand": "-i", "description": "Bulk update job ID."},
+              {"flag": "--use-most-recent", "description": "Resume the most recent bulk update job."}
+            ]
+          },
+          "upsert bulk": {
+            title: "SF data upsert bulk",
+            description: "Insert or update records in bulk using an external ID field.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-upsert-bulk",
+            options: [
+              {"flag": "--file", "description": "CSV file with data to upsert."},
+              {"flag": "--sobject", "shorthand": "-s", "description": "API name of the object."},
+              {"flag": "--external-id-field", "shorthand": "-i", "description": "External ID field used for matching records."},
+              {"flag": "--target-org", "shorthand": "-o", "description": "Alias or username for the org."},
+              {"flag": "--wait", "shorthand": "-w", "description": "Minutes to wait for the upsert to finish."}
+            ]
+          },
+          "upsert resume": {
+            title: "SF data upsert resume",
+            description: "Resume a bulk upsert job that was previously started.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_data_commands_unified.htm#sf-data-upsert-resume",
+            options: [
+              {"flag": "--job-id", "shorthand": "-i", "description": "Bulk upsert job ID."},
+              {"flag": "--use-most-recent", "description": "Resume the most recent bulk upsert job."}
+            ]
+          }
+        }
+      },
+      apex: {
+        title: "SF apex",
+        description: "Compile, execute, and debug Apex code and tests directly from the CLI.",
+        doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_apex_commands_unified.htm",
+        subcommands: {
+          generate: {
+            title: "SF apex generate",
+            description: "Scaffold Apex classes and triggers with ready-made CLI templates.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_apex_commands_unified.htm",
+            subcommands: {
+              class: {
+                title: "SF apex generate class",
+                description: "Create an Apex class along with its metadata file from a chosen template.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_apex_commands_unified.htm#sf-apex-generate-class",
+                options: [
+                  {
+                    shorthand: "-n",
+                    flag: "--name",
+                    description: "Name for the generated Apex class (must start with a letter)."
+                  },
+                  {
+                    shorthand: "-t",
+                    flag: "--template",
+                    description: "Template to use, such as DefaultApexClass or ApexUnitTest."
+                  },
+                  {
+                    shorthand: "-d",
+                    flag: "--output-dir",
+                    description: "Directory where the class files should be created."
+                  },
+                  {
+                    flag: "--api-version",
+                    description: "Override the API version used when generating the metadata."
+                  }
+                ]
+              },
+              trigger: {
+                title: "SF apex generate trigger",
+                description: "Generate an Apex trigger with metadata, target object, and event configuration.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_apex_commands_unified.htm#sf-apex-generate-trigger",
+                options: [
+                  {
+                    shorthand: "-n",
+                    flag: "--name",
+                    description: "Name for the trigger file to create."
+                  },
+                  {
+                    shorthand: "-s",
+                    flag: "--sobject",
+                    description: "API name of the object the trigger operates on."
+                  },
+                  {
+                    shorthand: "-e",
+                    flag: "--event",
+                    description: "One or more trigger events, such as before insert or after update."
+                  },
+                  {
+                    shorthand: "-d",
+                    flag: "--output-dir",
+                    description: "Directory where the trigger files should be created."
+                  },
+                  {
+                    shorthand: "-t",
+                    flag: "--template",
+                    description: "Trigger template to use, typically ApexTrigger."
+                  },
+                  {
+                    flag: "--api-version",
+                    description: "Override the API version used when generating the metadata."
+                  }
+                ]
+              }
+            }
+          },
+          get: {
+            title: "SF apex get",
+            description: "Retrieve Apex diagnostics or test results from a target org.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_apex_commands_unified.htm",
+            subcommands: {
+              log: {
+                title: "SF apex get log",
+                description: "Fetch a specific debug log or a set of the most recent logs from an org.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_apex_commands_unified.htm#sf-apex-get-log",
+                options: [
+                  {
+                    shorthand: "-i",
+                    flag: "--log-id",
+                    description: "ID of the debug log to retrieve."
+                  },
+                  {
+                    shorthand: "-n",
+                    flag: "--number",
+                    description: "How many of the most recent logs to download."
+                  },
+                  {
+                    shorthand: "-d",
+                    flag: "--output-dir",
+                    description: "Directory where retrieved log files should be saved."
+                  },
+                  {
+                    shorthand: "-o",
+                    flag: "--target-org",
+                    description: "Alias or username for the org that produced the logs."
+                  },
+                  {
+                    flag: "--json",
+                    description: "Return log details in JSON format instead of human-readable output."
+                  },
+                  {
+                    flag: "--api-version",
+                    description: "Override the API version used for the retrieval."
+                  }
+                ]
+              },
+              test: {
+                title: "SF apex get test",
+                description: "Display results, coverage, and files for an asynchronous Apex test run.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_apex_commands_unified.htm#sf-apex-get-test",
+                options: [
+                  {
+                    shorthand: "-i",
+                    flag: "--test-run-id",
+                    description: "ID of the Apex test run to inspect."
+                  },
+                  {
+                    shorthand: "-r",
+                    flag: "--result-format",
+                    description: "Format for results, such as human, junit, tap, or json."
+                  },
+                  {
+                    shorthand: "-d",
+                    flag: "--output-dir",
+                    description: "Directory where test result files should be stored."
+                  },
+                  {
+                    shorthand: "-c",
+                    flag: "--code-coverage",
+                    description: "Include code coverage details with the results."
+                  },
+                  {
+                    shorthand: "-o",
+                    flag: "--target-org",
+                    description: "Alias or username for the org where the tests ran."
+                  },
+                  {
+                    shorthand: "-v",
+                    flag: "--detailed-coverage",
+                    description: "Show per-test coverage details when using human output."
+                  },
+                  {
+                    flag: "--concise",
+                    description: "Display only failed tests in human-readable output."
+                  },
+                  {
+                    flag: "--json",
+                    description: "Return the test run details in JSON format."
+                  },
+                  {
+                    flag: "--api-version",
+                    description: "Override the API version used to fetch the test results."
+                  }
+                ]
+              }
+            }
+          },
+          list: {
+            title: "SF apex list",
+            description: "List Apex debug logs available from the target org.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_apex_commands_unified.htm",
+            subcommands: {
+              log: {
+                title: "SF apex list log",
+                description: "Display IDs and metadata for debug logs stored in an org.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_apex_commands_unified.htm#sf-apex-list-log",
+                options: [
+                  {
+                    shorthand: "-o",
+                    flag: "--target-org",
+                    description: "Alias or username for the org whose logs to list."
+                  },
+                  {
+                    flag: "--json",
+                    description: "Return the log list in JSON format."
+                  },
+                  {
+                    flag: "--api-version",
+                    description: "Override the API version used to query logs."
+                  }
+                ]
+              }
+            }
+          },
+          run: {
+            title: "SF apex run",
+            description: "Execute anonymous Apex interactively or from a local file.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_apex_commands_unified.htm#sf-apex-run",
+            options: [
+              {
+                shorthand: "-f",
+                flag: "--file",
+                description: "Path to a file containing anonymous Apex to execute."
+              },
+              {
+                shorthand: "-o",
+                flag: "--target-org",
+                description: "Alias or username for the org where the Apex executes."
+              },
+              {
+                flag: "--api-version",
+                description: "Override the API version used for execute anonymous calls."
+              }
+            ],
+            subcommands: {
+              test: {
+                title: "SF apex run test",
+                description: "Invoke Apex tests asynchronously or synchronously with coverage options.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_apex_commands_unified.htm#sf-apex-run-test",
+                options: [
+                  {
+                    shorthand: "-o",
+                    flag: "--target-org",
+                    description: "Alias or username for the org running the tests."
+                  },
+                  {
+                    shorthand: "-t",
+                    flag: "--tests",
+                    description: "Specific test classes or methods to execute."
+                  },
+                  {
+                    shorthand: "-s",
+                    flag: "--suite-names",
+                    description: "Apex test suite names to run."
+                  },
+                  {
+                    shorthand: "-n",
+                    flag: "--class-names",
+                    description: "Apex test classes to run when not using suites or tests."
+                  },
+                  {
+                    shorthand: "-l",
+                    flag: "--test-level",
+                    description: "Level of tests to run, such as RunLocalTests or RunAllTestsInOrg."
+                  },
+                  {
+                    shorthand: "-w",
+                    flag: "--wait",
+                    description: "Minutes to wait for asynchronous tests before returning."
+                  },
+                  {
+                    shorthand: "-d",
+                    flag: "--output-dir",
+                    description: "Directory where test result files should be written."
+                  },
+                  {
+                    shorthand: "-r",
+                    flag: "--result-format",
+                    description: "Preferred result format, such as human, tap, junit, or json."
+                  },
+                  {
+                    shorthand: "-c",
+                    flag: "--code-coverage",
+                    description: "Include code coverage summary in the output."
+                  },
+                  {
+                    shorthand: "-v",
+                    flag: "--detailed-coverage",
+                    description: "Show detailed coverage information per test."
+                  },
+                  {
+                    shorthand: "-y",
+                    flag: "--synchronous",
+                    description: "Run tests synchronously when possible."
+                  },
+                  {
+                    flag: "--concise",
+                    description: "Display only failed test results in human-readable mode."
+                  },
+                  {
+                    flag: "--json",
+                    description: "Return the test run output in JSON format."
+                  },
+                  {
+                    flag: "--api-version",
+                    description: "Override the API version used to run the tests."
+                  }
+                ]
+              }
+            }
+          },
+          tail: {
+            title: "SF apex tail",
+            description: "Stream Apex debug logs by setting up a trace flag in the target org.",
+            doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_apex_commands_unified.htm",
+            subcommands: {
+              log: {
+                title: "SF apex tail log",
+                description: "Activate a trace flag and stream logs to the terminal in real time.",
+                doc: "https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_apex_commands_unified.htm#sf-apex-tail-log",
+                options: [
+                  {
+                    shorthand: "-o",
+                    flag: "--target-org",
+                    description: "Alias or username for the org whose logs you want to stream."
+                  },
+                  {
+                    shorthand: "-d",
+                    flag: "--debug-level",
+                    description: "Debug level to assign to the trace flag."
+                  },
+                  {
+                    shorthand: "-c",
+                    flag: "--color",
+                    description: "Apply highlight colors to important log entries."
+                  },
+                  {
+                    shorthand: "-s",
+                    flag: "--skip-trace-flag",
+                    description: "Reuse an existing trace flag instead of creating a new one."
+                  },
+                  {
+                    flag: "--api-version",
+                    description: "Override the API version used to manage the trace flag."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    };
+
+    const commandInput = document.getElementById("command-input");
+    const commandTitleText = document.getElementById("command-title-text");
+    const commandDescription = document.getElementById("command-description");
+    const commandList = document.getElementById("command-list");
+    const infoMeta = document.querySelector(".info-meta");
+    const placeholderLabel = document.querySelector(".prompt-placeholder");
+    const optionsBlock = document.getElementById("options-block");
+    const optionList = document.getElementById("option-list");
+    const commandDocLink = document.getElementById("command-doc-link");
+    const navBackButton = document.getElementById("nav-back");
+
+    let currentContext = { primaryKey: null, subKey: null, subSubKey: null };
+
+    const renderCommandList = (entries) => {
+      commandList.innerHTML = "";
+      entries.forEach(({ label, command, active }) => {
+        const node = document.createElement("li");
+        node.textContent = label;
+        node.dataset.command = command;
+        node.setAttribute("role", "button");
+        node.tabIndex = 0;
+        if (active) {
+          node.classList.add("active");
+        }
+        commandList.appendChild(node);
+      });
+    };
+
+    const setDocLink = (href) => {
+      if (href) {
+        commandDocLink.href = href;
+        commandDocLink.target = "_blank";
+        commandDocLink.rel = "noreferrer noopener";
+        commandDocLink.classList.remove("is-disabled");
+        commandDocLink.removeAttribute("aria-disabled");
+        commandDocLink.removeAttribute("tabindex");
+      } else {
+        commandDocLink.removeAttribute("href");
+        commandDocLink.removeAttribute("target");
+        commandDocLink.removeAttribute("rel");
+        commandDocLink.classList.add("is-disabled");
+        commandDocLink.setAttribute("aria-disabled", "true");
+        commandDocLink.setAttribute("tabindex", "-1");
+      }
+    };
+
+    const renderOptions = (options = []) => {
+      optionList.innerHTML = "";
+      if (!options.length) {
+        optionsBlock.hidden = true;
+        return;
+      }
+
+      optionsBlock.hidden = false;
+      options.forEach(({ flag, shorthand, description }) => {
+        const item = document.createElement("li");
+        item.className = "option-item";
+        item.dataset.flag = flag || "";
+        item.dataset.shorthand = shorthand || "";
+        item.setAttribute("role", "button");
+        item.tabIndex = 0;
+
+        const flagWrapper = document.createElement("div");
+        flagWrapper.className = "option-flag";
+
+        if (shorthand) {
+          const shortNode = document.createElement("code");
+          shortNode.textContent = shorthand;
+          flagWrapper.appendChild(shortNode);
+        }
+
+        const flagNode = document.createElement("code");
+        flagNode.textContent = flag;
+        flagWrapper.appendChild(flagNode);
+
+        item.appendChild(flagWrapper);
+
+        if (description) {
+          const descriptionNode = document.createElement("p");
+          descriptionNode.className = "option-description";
+          descriptionNode.textContent = description;
+          item.appendChild(descriptionNode);
+        }
+
+        optionList.appendChild(item);
+      });
+    };
+
+    const updateMetaLabel = (label, items) => {
+      if (!items.length) {
+        infoMeta.textContent = "";
+        return;
+      }
+      infoMeta.textContent = `${label}: ${items.join(" · ")}`;
+    };
+
+    const findMatchKey = (collection, token) => {
+      if (collection[token]) {
+        return token;
+      }
+      return Object.keys(collection).find((key) => key.startsWith(token));
+    };
+
+    const buildTopLevelEntries = (activeKey) =>
+      Object.keys(COMMANDS).map((key) => ({
+        label: key,
+        command: key,
+        active: activeKey === key
+      }));
+
+    const buildSubEntries = (primaryKey, activeKey) => {
+      const { subcommands = {} } = COMMANDS[primaryKey] || {};
+      return Object.keys(subcommands).map((key) => ({
+        label: key,
+        command: `${primaryKey} ${key}`,
+        active: activeKey === key
+      }));
+    };
+
+    const buildNestedEntries = (primaryKey, secondaryKey, activeKey) => {
+      const secondary = (COMMANDS[primaryKey] || {}).subcommands || {};
+      const { subcommands = {} } = secondary[secondaryKey] || {};
+      return Object.keys(subcommands).map((key) => ({
+        label: key,
+        command: `${primaryKey} ${secondaryKey} ${key}`,
+        active: activeKey === key
+      }));
+    };
+
+    const handleCommandSelection = (commandKey) => {
+      if (!commandKey) {
+        return;
+      }
+      commandInput.value = commandKey;
+      syncPlaceholderVisibility(commandKey);
+      updatePanel(commandKey);
+      commandInput.focus();
+    };
+
+    const handleOptionSelection = (optionToken) => {
+      if (!currentContext.primaryKey || !optionToken) {
+        return;
+      }
+
+      const baseTokens = [currentContext.primaryKey];
+      if (currentContext.subKey) {
+        baseTokens.push(currentContext.subKey);
+      }
+      if (currentContext.subSubKey) {
+        baseTokens.push(currentContext.subSubKey);
+      }
+
+      let tokens = commandInput.value.trim().split(/\s+/).filter(Boolean);
+      const matchesBase = baseTokens.every((token, idx) => tokens[idx] === token);
+      if (!matchesBase) {
+        tokens = baseTokens.slice();
+      }
+
+      if (!tokens.includes(optionToken)) {
+        tokens.push(optionToken);
+      }
+
+      const nextValue = tokens.join(" ");
+      commandInput.value = nextValue.length ? `${nextValue} ` : "";
+      syncPlaceholderVisibility(commandInput.value);
+      updatePanel(commandInput.value);
+      commandInput.focus();
+    };
+
+    const syncPlaceholderVisibility = (rawValue) => {
+      const hasText = rawValue.length > 0;
+      placeholderLabel.classList.toggle("hidden", hasText);
+      if (hasText) {
+        placeholderLabel.setAttribute("aria-hidden", "true");
+      } else {
+        placeholderLabel.removeAttribute("aria-hidden");
+      }
+    };
+
+    const updatePanel = (value) => {
+      const tokens = value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      currentContext = { primaryKey: null, subKey: null, subSubKey: null };
+      setDocLink(null);
+
+      if (!tokens.length) {
+        commandTitleText.textContent = "Available SF Commands";
+        commandDescription.innerHTML = "Start typing after <strong>SF</strong> to learn what a command does. Partial matches will highlight automatically.";
+        renderCommandList(buildTopLevelEntries(null));
+        updateMetaLabel("Commands", Object.keys(COMMANDS));
+        renderOptions([]);
+        navBackButton.hidden = true;
+        return;
+      }
+
+      navBackButton.hidden = false;
+
+      const [firstToken, secondToken] = tokens;
+      const primaryKey = findMatchKey(COMMANDS, firstToken);
+
+      if (!primaryKey) {
+        commandTitleText.textContent = `SF ${value}`;
+        commandDescription.textContent = "Command not found. Try one of the supported parameters shown below.";
+        renderCommandList(buildTopLevelEntries(null));
+        updateMetaLabel("Commands", Object.keys(COMMANDS));
+        renderOptions([]);
+        navBackButton.hidden = tokens.length === 0;
+        return;
+      }
+
+      const primaryDetails = COMMANDS[primaryKey];
+      const hasExactPrimary = primaryKey === firstToken;
+      currentContext.primaryKey = primaryKey;
+      const subcommands = primaryDetails.subcommands || {};
+      const subKeys = Object.keys(subcommands);
+      setDocLink(primaryDetails.doc || null);
+
+      if (tokens.length === 1) {
+        commandTitleText.textContent = primaryDetails.title;
+        commandDescription.textContent = primaryDetails.description;
+
+        if (hasExactPrimary && subKeys.length) {
+          renderCommandList(buildSubEntries(primaryKey, null));
+          updateMetaLabel("Subcommands", subKeys);
+          renderOptions([]);
+        } else {
+          renderCommandList(buildTopLevelEntries(primaryKey));
+          updateMetaLabel("Commands", Object.keys(COMMANDS));
+          renderOptions([]);
+        }
+        if (!hasExactPrimary) {
+          currentContext.primaryKey = null;
+          setDocLink(null);
+        }
+        navBackButton.hidden = tokens.length === 0;
+        return;
+      }
+
+      if (!subKeys.length) {
+        commandTitleText.textContent = primaryDetails.title;
+        commandDescription.textContent = primaryDetails.description;
+        renderCommandList(buildTopLevelEntries(primaryKey));
+        updateMetaLabel("Commands", Object.keys(COMMANDS));
+        renderOptions([]);
+        if (!hasExactPrimary) {
+          currentContext.primaryKey = null;
+          setDocLink(null);
+        }
+        navBackButton.hidden = tokens.length === 0;
+        return;
+      }
+
+      const subKey = findMatchKey(subcommands, secondToken);
+      if (!subKey) {
+        commandTitleText.textContent = `SF ${value}`;
+        commandDescription.textContent = "Command not found. Try one of the supported parameters shown below.";
+        renderCommandList(buildSubEntries(primaryKey, null));
+        updateMetaLabel("Subcommands", subKeys);
+        renderOptions([]);
+        if (!hasExactPrimary) {
+          currentContext.primaryKey = null;
+          setDocLink(null);
+        }
+        navBackButton.hidden = tokens.length === 0;
+        return;
+      }
+
+      const subDetails = subcommands[subKey];
+      const subSubCommands = subDetails.subcommands || {};
+      const subSubKeys = Object.keys(subSubCommands);
+
+      currentContext.subKey = subKey;
+
+      if (!subSubKeys.length) {
+        commandTitleText.textContent = subDetails.title;
+        commandDescription.textContent = subDetails.description;
+        renderCommandList(buildSubEntries(primaryKey, subKey));
+        updateMetaLabel("Subcommands", subKeys);
+        renderOptions(subDetails.options || []);
+        setDocLink(subDetails.doc || primaryDetails.doc || null);
+        navBackButton.hidden = tokens.length === 0;
+        return;
+      }
+
+      const thirdToken = tokens[2];
+
+      if (!thirdToken) {
+        commandTitleText.textContent = subDetails.title;
+        commandDescription.textContent = subDetails.description;
+        renderCommandList(buildNestedEntries(primaryKey, subKey, null));
+        updateMetaLabel("Subcommands", subSubKeys);
+        renderOptions(subDetails.options || []);
+        setDocLink(subDetails.doc || primaryDetails.doc || null);
+        navBackButton.hidden = tokens.length === 0;
+        return;
+      }
+
+      const subSubKey = findMatchKey(subSubCommands, thirdToken);
+      if (!subSubKey) {
+        commandTitleText.textContent = `SF ${value}`;
+        commandDescription.textContent = "Command not found. Try one of the supported parameters shown below.";
+        renderCommandList(buildNestedEntries(primaryKey, subKey, null));
+        updateMetaLabel("Subcommands", subSubKeys);
+        renderOptions([]);
+        setDocLink(subDetails.doc || primaryDetails.doc || null);
+        navBackButton.hidden = tokens.length === 0;
+        return;
+      }
+
+      const subSubDetails = subSubCommands[subSubKey];
+      commandTitleText.textContent = subSubDetails.title;
+      commandDescription.textContent = subSubDetails.description;
+      renderCommandList(buildNestedEntries(primaryKey, subKey, subSubKey));
+      updateMetaLabel("Subcommands", subSubKeys);
+      renderOptions(subSubDetails.options || []);
+      currentContext.subSubKey = subSubKey;
+      setDocLink(subSubDetails.doc || subDetails.doc || primaryDetails.doc || null);
+      navBackButton.hidden = false;
+    };
+
+    commandInput.addEventListener("input", (event) => {
+      const { value } = event.target;
+      syncPlaceholderVisibility(value);
+      updatePanel(value);
+    });
+
+    commandList.addEventListener("click", (event) => {
+      const target = event.target.closest("li[data-command]");
+      if (!target) {
+        return;
+      }
+      handleCommandSelection(target.dataset.command);
+    });
+
+    commandList.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        const target = event.target.closest("li[data-command]");
+        if (!target) {
+          return;
+        }
+        event.preventDefault();
+        handleCommandSelection(target.dataset.command);
+      }
+    });
+
+    optionList.addEventListener("click", (event) => {
+      const target = event.target.closest("li[data-flag]");
+      if (!target) {
+        return;
+      }
+      const optionToken = target.dataset.flag || target.dataset.shorthand;
+      handleOptionSelection(optionToken);
+    });
+
+    optionList.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        const target = event.target.closest("li[data-flag]");
+        if (!target) {
+          return;
+        }
+        event.preventDefault();
+        const optionToken = target.dataset.flag || target.dataset.shorthand;
+        handleOptionSelection(optionToken);
+      }
+    });
+
+    navBackButton.addEventListener("click", () => {
+      const tokens = commandInput.value.trim().split(/\s+/).filter(Boolean);
+      if (!tokens.length) {
+        navBackButton.hidden = true;
+        return;
+      }
+
+      tokens.pop();
+      const nextValue = tokens.join(" ");
+      commandInput.value = nextValue.length ? `${nextValue} ` : "";
+      syncPlaceholderVisibility(commandInput.value);
+      updatePanel(commandInput.value);
+      commandInput.focus();
+    });
+
+    updatePanel(commandInput.value);
+    syncPlaceholderVisibility(commandInput.value);
+    commandInput.focus();
+  </script>
+</body>
+</html>

@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Apex Trigger Generator - Same Patterns as Article</title>
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 20px; line-height: 1.35; }
+  header { margin-bottom: 12px; }
+  fieldset { border: 1px solid #ccc; padding: 12px; margin: 12px 0; }
+  legend { font-weight: 600; }
+  label { display: block; margin: 6px 0 2px; }
+  input, select, textarea { width: 100%; padding: 8px; box-sizing: border-box; }
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .hidden { display: none; }
+  .code { white-space: pre; background: #0b1020; color: #e8e8e8; padding: 14px; border-radius: 6px; overflow: auto; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  small.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; color: #666; }
+  .layout { display: grid; grid-template-columns: minmax(260px, 40%) minmax(320px, 60%); gap: 16px; align-items: start; }
+  .form-section { display: flex; flex-direction: column; }
+  .output-section { display: flex; flex-direction: column; }
+  @media (max-width: 960px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Apex Trigger Generator</h1>
+  <p>This page outputs trigger + helper skeletons that mirror the six patterns described in the article (loop/bulk-safe with a helper class and recursion guard). Source: <span class="mono">ApexTriggers/README.md</span> - :contentReference[oaicite:1]{index=1}</p>
+</header>
+
+<div class="layout">
+  <div class="form-section">
+    <fieldset>
+      <legend>1) Select trigger type</legend>
+      <label for="type">Trigger type</label>
+      <select id="type">
+        <option value="compute">1 - Compute values within same record (formula-like)</option>
+        <option value="validate">2 - Validation using same-record data</option>
+        <option value="pull">3 - Set fields using other records (lookup/query)</option>
+        <option value="propagate">4 - Update other records (children/parents)</option>
+        <option value="callout">5 - Perform callouts to external services (async)</option>
+        <option value="email">6 - Send email notifications (after)</option>
+      </select>
+    </fieldset>
+
+    <fieldset>
+      <legend>2) Base parameters</legend>
+      <div class="row">
+        <div>
+          <label for="sobject">SObject API name (e.g., Investment__c)</label>
+          <input id="sobject" placeholder="Investment__c" />
+        </div>
+        <div>
+          <label for="triggerName">Trigger name</label>
+          <input id="triggerName" placeholder="InvestmentTrigger" />
+        </div>
+        <div>
+          <label for="helperName">Helper class name</label>
+          <input id="helperName" placeholder="InvestmentHelperClass" />
+        </div>
+        <div>
+          <label for="methodName">Helper method name</label>
+          <input id="methodName" placeholder="calculateXIRR" />
+        </div>
+      </div>
+      <small class="mono">All patterns call Helper.method(trigger.operationType, trigger.new, trigger.oldMap)</small>
+    </fieldset>
+
+    <!-- Type-specific parameter blocks -->
+    <fieldset id="params-compute" class="">
+      <legend>Type 1 - Compute within same record</legend>
+      <div class="row">
+        <div>
+          <label for="computeSrcFields">Source fields (comma separated)</label>
+          <input id="computeSrcFields" placeholder="First_Period_Start_Date__c, Second_Period_Start_Date__c, ..." />
+        </div>
+        <div>
+          <label for="computeDestField">Destination field</label>
+          <input id="computeDestField" placeholder="XIRR__c" />
+        </div>
+        <div>
+          <label for="computeEvents">Trigger events</label>
+          <input id="computeEvents" placeholder="before insert, before update" value="before insert, before update" />
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset id="params-validate" class="hidden">
+      <legend>Type 2 - Validation in same record</legend>
+      <div class="row">
+        <div>
+          <label for="validateFields">Relevant fields (comma separated)</label>
+          <input id="validateFields" placeholder="Allocation_Percentage__c" />
+        </div>
+        <div>
+          <label for="validateMessage">Validation message</label>
+          <input id="validateMessage" placeholder="Percentage must not exceed 100 across account" />
+        </div>
+        <div>
+          <label for="validateEvents">Trigger events</label>
+          <input id="validateEvents" placeholder="before insert, before update" value="before insert, before update" />
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset id="params-pull" class="hidden">
+      <legend>Type 3 - Pull values from other records</legend>
+      <div class="row">
+        <div>
+          <label for="pullQuery">SOQL to fetch related data</label>
+          <input id="pullQuery" placeholder="SELECT Id, ServiceResourceId, ServiceTerritoryId, ServiceResource.Service__c FROM ServiceTerritoryMember WHERE ServiceTerritoryId IN :territories AND ServiceResource.Service__c IN :services" />
+        </div>
+        <div>
+          <label for="pullKey">Composite key expression for map (e.g., a.ServiceTerritoryId + '|' + a.ServiceResource.Service__c)</label>
+          <input id="pullKey" />
+        </div>
+        <div>
+          <label for="pullDestField">Destination field on incoming record</label>
+          <input id="pullDestField" placeholder="Preferred_Resource__c" />
+        </div>
+        <div>
+          <label for="pullEvents">Trigger events</label>
+          <input id="pullEvents" placeholder="before insert, before update" value="before insert, before update" />
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset id="params-propagate" class="hidden">
+      <legend>Type 4 - Update other records</legend>
+      <div class="row">
+        <div>
+          <label for="propagateTarget">Target SObject API name</label>
+          <input id="propagateTarget" placeholder="Disbursement__c" />
+        </div>
+        <div>
+          <label for="propagateLogic">High-level logic (one line)</label>
+          <input id="propagateLogic" placeholder="If Opportunity becomes Closed Won, create 12 Disbursements" />
+        </div>
+        <div>
+          <label for="propagateEvents">Trigger events</label>
+          <input id="propagateEvents" placeholder="after insert, after update" value="after insert, after update" />
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset id="params-callout" class="hidden">
+      <legend>Type 5 - Callout (async)</legend>
+      <div class="row">
+        <div>
+          <label for="calloutChangedCheck">Only when these fields change (comma separated)</label>
+          <input id="calloutChangedCheck" placeholder="Warehouse__c, AccountId" />
+        </div>
+        <div>
+          <label for="calloutSourceMap">Source address field</label>
+          <input id="calloutSourceMap" placeholder="Warehouse_Address__c" />
+        </div>
+        <div>
+          <label for="calloutDestMap">Destination address field</label>
+          <input id="calloutDestMap" placeholder="Customer_Address__c" />
+        </div>
+        <div>
+          <label for="calloutCostField">Cost/result destination field</label>
+          <input id="calloutCostField" placeholder="Transportation_Cost__c" />
+        </div>
+        <div>
+          <label for="calloutEvents">Trigger events</label>
+          <input id="calloutEvents" placeholder="after insert, after update" value="after insert, after update" />
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset id="params-email" class="hidden">
+      <legend>Type 6 - Email notifications</legend>
+      <div class="row">
+        <div>
+          <label for="emailParent">Parent SObject (queried to evaluate condition)</label>
+          <input id="emailParent" placeholder="Opportunity" />
+        </div>
+        <div>
+          <label for="emailChildRel">Child relationship name to traverse (e.g., Quotes)</label>
+          <input id="emailChildRel" placeholder="Quotes" />
+        </div>
+        <div>
+          <label for="emailCondition">Email condition</label>
+          <input id="emailCondition" placeholder="More than one Quote has Forecast__c = true" />
+        </div>
+        <div>
+          <label for="emailEvents">Trigger events</label>
+          <input id="emailEvents" placeholder="after insert, after update" value="after insert, after update" />
+        </div>
+      </div>
+    </fieldset>
+
+    <div class="actions">
+      <button id="generate">Generate Apex</button>
+      <button id="copy">Copy to clipboard</button>
+    </div>
+  </div>
+
+  <div class="output-section">
+    <fieldset>
+      <legend>3) Output</legend>
+      <div id="out" class="code">// Generated code will appear here</div>
+    </fieldset>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const blocks = {
+  compute: $('params-compute'),
+  validate: $('params-validate'),
+  pull: $('params-pull'),
+  propagate: $('params-propagate'),
+  callout: $('params-callout'),
+  email: $('params-email')
+};
+
+function showBlock(type) {
+  Object.entries(blocks).forEach(([k, el]) => {
+    el.classList.toggle('hidden', k !== type);
+  });
+}
+
+$('type').addEventListener('change', (e) => showBlock(e.target.value));
+showBlock($('type').value);
+
+$('generate').addEventListener('click', () => {
+  const type = $('type').value.trim();
+  const sobject = $('sobject').value.trim() || 'MyObj__c';
+  const triggerName = $('triggerName').value.trim() || (sobject.replace(/__c$/,'') + 'Trigger');
+  const helper = $('helperName').value.trim() || (sobject.replace(/__c$/,'') + 'HelperClass');
+  const method = $('methodName').value.trim() || 'doWork';
+
+  // Common header with recursion guard pattern
+  const recursionBlock =
+`public with sharing class ${helper} {
+    private static Set<Id> running = new Set<Id>(); // recursion guard
+
+    public static void ${method}(TriggerOperation operationType, List<${sobject}> newList, Map<Id, ${sobject}> oldMap) {
+        if (newList == null || newList.isEmpty()) return;
+        // Prevent re-entry for this transaction
+        if (!running.isEmpty()) return;
+        running.add(newList[0].sObjectType.getDescribe().getKeyPrefix());
+
+        try {
+            // logic starts here
+${'__PLACEHOLDER__'}
+        } finally {
+            running.clear();
+        }
+    }
+}
+`;
+
+  let triggerEvents = '';
+  let body = '';
+
+  if (type === 'compute') {
+    const src = $('computeSrcFields').value.trim() || 'First_Period_Start_Date__c, Second_Period_Start_Date__c';
+    const dest = $('computeDestField').value.trim() || 'XIRR__c';
+    triggerEvents = $('computeEvents').value.trim() || 'before insert, before update';
+
+    body =
+`            for (${sobject} rec : newList) {
+                // Example: compute from same-record fields
+                // TODO: validate inputs for calculation
+                // rec.${dest} = MyFormula.compute(rec.${src.split(',')[0].trim()}, /* more args */);
+            }`;
+
+  } else if (type === 'validate') {
+    const fields = $('validateFields').value.trim() || 'Allocation_Percentage__c';
+    const msg = $('validateMessage').value.trim() || 'Percentage must not exceed allowed limit';
+    triggerEvents = $('validateEvents').value.trim() || 'before insert, before update';
+
+    body =
+`            // Example aggregation per parent to validate totals
+            Map<Id, Decimal> totals = new Map<Id, Decimal>();
+            for (${sobject} rec : newList) {
+                Id parentId = rec.AccountId; // adjust parent field as needed
+                Decimal running = totals.get(parentId);
+                if (running == null) running = 0;
+                running += rec.${fields.split(',')[0].trim()};
+                totals.put(parentId, running);
+                if (running > 100) {
+                    rec.addError('${msg}');
+                }
+            }`;
+
+  } else if (type === 'pull') {
+    const soql = $('pullQuery').value.trim() || '/* SOQL here: SELECT ... FROM ... WHERE ... IN :sets */';
+    const keyExpr = $('pullKey').value.trim() || "a.ServiceTerritoryId + '|' + a.ServiceResource.Service__c";
+    const dest = $('pullDestField').value.trim() || 'Preferred_Resource__c';
+    triggerEvents = $('pullEvents').value.trim() || 'before insert, before update';
+
+    body =
+`            // Collect keys from incoming records
+            Set<String> k1 = new Set<String>();
+            Set<String> k2 = new Set<String>();
+            for (${sobject} rec : newList) {
+                if (rec.ServiceTerritoryId != null) k1.add(rec.ServiceTerritoryId);
+                if (rec.Service__c != null) k2.add(rec.Service__c);
+            }
+            if (k1.isEmpty() && k2.isEmpty()) return;
+
+            // Query related records
+            List<SObject> rows = Database.query('${soql}');
+            if (rows.isEmpty()) return;
+
+            // Build map by composite key
+            Map<String, Id> byKey = new Map<String, Id>();
+            for (SObject a : rows) {
+                String key = ${keyExpr};
+                byKey.put(key, (Id)a.get('ServiceResourceId'));
+            }
+
+            // Assign value on the same incoming record
+            for (${sobject} rec : newList) {
+                String key = String.valueOf(rec.get('ServiceTerritoryId')) + '|' + String.valueOf(rec.get('Service__c'));
+                rec.${dest} = byKey.get(key);
+            }`;
+
+  } else if (type === 'propagate') {
+    const target = $('propagateTarget').value.trim() || 'Disbursement__c';
+    const logic = $('propagateLogic').value.trim() || 'If record becomes Closed Won, create 12 child records';
+    triggerEvents = $('propagateEvents').value.trim() || 'after insert, after update';
+
+    body =
+`            // ${logic}
+            List<${target}> toInsert = new List<${target}>();
+            for (${sobject} rec : newList) {
+                ${sobject} oldRec = (oldMap == null) ? null : oldMap.get(rec.Id);
+                Boolean changedToWon = (oldRec == null) ? (rec.get('IsWon') == true) :
+                                       ((oldRec.get('IsWon') != rec.get('IsWon')) && (rec.get('IsWon') == true));
+                if (!changedToWon) continue;
+
+                // Template
+                ${target} tmpl = new ${target}();
+                tmpl.put('${sobject.replace('__c','')}__c', rec.Id); // adjust lookup API name
+
+                // Create 12 children
+                for (Integer i = 0; i < 12; i++) {
+                    ${target} row = (${target})tmpl.clone(false, true, false, false);
+                    row.put('Name', String.valueOf(rec.get('Name')) + ' - Disbursement ' + (i+1));
+                    // row.put('Some_Date__c', ((Date)rec.get('CloseDate')).addMonths(i)); // adjust
+                    toInsert.add(row);
+                }
+            }
+            if (!toInsert.isEmpty()) insert toInsert;`;
+
+  } else if (type === 'callout') {
+    const changed = $('calloutChangedCheck').value.trim() || 'Warehouse__c, AccountId';
+    const srcFld = $('calloutSourceMap').value.trim() || 'Warehouse_Address__c';
+    const dstFld = $('calloutDestMap').value.trim() || 'Customer_Address__c';
+    const costFld = $('calloutCostField').value.trim() || 'Transportation_Cost__c';
+    triggerEvents = $('calloutEvents').value.trim() || 'after insert, after update';
+
+    body =
+`            // Collect records whose relevant fields changed
+            Map<Id, String> src = new Map<Id, String>();
+            Map<Id, String> dst = new Map<Id, String>();
+            for (${sobject} rec : newList) {
+                ${sobject} oldRec = (oldMap == null) ? null : oldMap.get(rec.Id);
+                Boolean relevantChange = false;
+                // Adjust change checks
+                ${changed.split(',').map(f => {
+                  const fld = f.trim();
+                  return `if (oldRec == null || rec.${fld} != oldRec.${fld}) relevantChange = true;`;
+                }).join('\n                ')}
+                if (!relevantChange) continue;
+                src.put(rec.Id, (String)rec.get('${srcFld}'));
+                dst.put(rec.Id, (String)rec.get('${dstFld}'));
+            }
+            if (src.isEmpty()) return;
+
+            // Async callout to compute costs
+            ${helper}.calculateDistance_async(src, dst, '${costFld}');`;
+
+  } else if (type === 'email') {
+    const parent = $('emailParent').value.trim() || 'Opportunity';
+    const childRel = $('emailChildRel').value.trim() || 'Quotes';
+    const cond = $('emailCondition').value.trim() || 'More than one child has Forecast__c = true';
+    triggerEvents = $('emailEvents').value.trim() || 'after insert, after update';
+
+    body =
+`            // Collect parent Ids from incoming records
+            Set<Id> parentIds = new Set<Id>();
+            for (${sobject} rec : newList) {
+                // Adjust parent lookup
+                parentIds.add((Id)rec.get('OpportunityId'));
+            }
+            if (parentIds.isEmpty()) return;
+
+            // Fetch parents with children
+            List<${parent}> parents = [
+                SELECT Id, (SELECT Id, Forecast__c FROM ${childRel})
+                FROM ${parent}
+                WHERE Id IN :parentIds
+            ];
+            if (parents.isEmpty()) return;
+
+            // Build emails when condition holds
+            List<Messaging.SingleEmailMessage> msgs = new List<Messaging.SingleEmailMessage>();
+            for (${parent} p : parents) {
+                Integer cnt = 0;
+                for (SObject q : p.${childRel}) {
+                    if ((Boolean)q.get('Forecast__c') == true) cnt++;
+                    if (cnt > 1) {
+                        Messaging.SingleEmailMessage m = new Messaging.SingleEmailMessage();
+                        // TODO: set toAddresses, templateId, whatId = p.Id, etc.
+                        m.setSubject('Notice: ${cond}');
+                        m.setPlainTextBody('Parent ' + p.Id + ' now meets condition: ${cond}');
+                        msgs.add(m);
+                        break;
+                    }
+                }
+            }
+            if (!msgs.isEmpty()) Messaging.sendEmail(msgs);`;
+  }
+
+  // Build trigger + helper
+  const triggerCode =
+`trigger ${triggerName} on ${sobject} (${triggerEvents}) {
+    ${helper}.${method}(Trigger.operationType, Trigger.new, Trigger.oldMap);
+}`;
+
+  let helperCode = recursionBlock.replace('__PLACEHOLDER__', body);
+
+  // Add async method for callout type
+  if (type === 'callout') {
+    helperCode += `
+
+@future(callout=true)
+public static void calculateDistance_async(Map<Id, String> src, Map<Id, String> dst, String costFieldApi) {
+    if (src == null || src.isEmpty()) return;
+
+    // TODO: Replace with real HTTP callout (e.g., Google Distance Matrix)
+    // HttpRequest req = new HttpRequest(); // build request
+    // Http http = new Http();
+    // HttpResponse res = http.send(req);
+
+    // Re-query records to update with result
+    List<${sobject}> rows = [SELECT Id, ${$('calloutSourceMap').value.trim() || 'Warehouse_Address__c'}, ${$('calloutDestMap').value.trim() || 'Customer_Address__c'} FROM ${sobject} WHERE Id IN :src.keySet()];
+    for (${sobject} r : rows) {
+        // Stubbed calculation:
+        Decimal cost = 100; // replace with parsed response
+        r.put(costFieldApi, cost);
+    }
+    update rows;
+}
+`;
+  }
+
+  $('out').textContent = triggerCode + '\n\n' + helperCode;
+});
+
+$('copy').addEventListener('click', async () => {
+  const text = $('out').textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    alert('Copied.');
+  } catch (e) {
+    alert('Copy failed. Select and copy manually.');
+  }
+});
+</script>
+
+</body>
+</html>
