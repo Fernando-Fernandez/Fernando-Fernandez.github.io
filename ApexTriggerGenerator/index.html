@@ -111,10 +111,10 @@
       <div class="row">
         <div>
           <label for="pullQuery">SOQL to fetch related data</label>
-          <input id="pullQuery" placeholder="SELECT Id, ServiceResourceId, ServiceTerritoryId, ServiceResource.Service__c FROM ServiceTerritoryMember WHERE ServiceTerritoryId IN :territories AND ServiceResource.Service__c IN :services" />
+          <input id="pullQuery" placeholder="SELECT Id, ServiceResourceId, Field1, ServiceResource.Field2 FROM ServiceTerritoryMember WHERE Field1 IN :territories AND ServiceResource.Field2 IN :services" />
         </div>
         <div>
-          <label for="pullKey">Composite key expression for map (e.g., a.ServiceTerritoryId + '|' + a.ServiceResource.Service__c)</label>
+          <label for="pullKey">Composite key expression for map (e.g., a.Field1 + '|' + a.ServiceResource.Field2)</label>
           <input id="pullKey" />
         </div>
         <div>
@@ -238,20 +238,11 @@ $('generate').addEventListener('click', () => {
   // Common header with recursion guard pattern
   const recursionBlock =
 `public with sharing class ${helper} {
-    private static Set<Id> running = new Set<Id>(); // recursion guard
-
     public static void ${method}(TriggerOperation operationType, List<${sobject}> newList, Map<Id, ${sobject}> oldMap) {
-        if (newList == null || newList.isEmpty()) return;
-        // Prevent re-entry for this transaction
-        if (!running.isEmpty()) return;
-        running.add(newList[0].sObjectType.getDescribe().getKeyPrefix());
+        // TODO: add recursion guard if required for your org's patterns
 
-        try {
-            // logic starts here
+        // logic starts here
 ${'__PLACEHOLDER__'}
-        } finally {
-            running.clear();
-        }
     }
 }
 `;
@@ -268,7 +259,7 @@ ${'__PLACEHOLDER__'}
 `            for (${sobject} rec : newList) {
                 // Example: compute from same-record fields
                 // TODO: validate inputs for calculation
-                // rec.${dest} = MyFormula.compute(rec.${src.split(',')[0].trim()}, /* more args */);
+                // rec.${dest} = CustomFormulaHelper.compute(rec.${src.split(',')[0].trim()}, /* more args */);
             }`;
 
   } else if (type === 'validate') {
@@ -292,35 +283,35 @@ ${'__PLACEHOLDER__'}
 
   } else if (type === 'pull') {
     const soql = $('pullQuery').value.trim() || '/* SOQL here: SELECT ... FROM ... WHERE ... IN :sets */';
-    const keyExpr = $('pullKey').value.trim() || "a.ServiceTerritoryId + '|' + a.ServiceResource.Service__c";
+    const keyExpr = $('pullKey').value.trim() || "a.Field1 + '|' + a.ServiceResource.Field2";
     const dest = $('pullDestField').value.trim() || 'Preferred_Resource__c';
     triggerEvents = $('pullEvents').value.trim() || 'before insert, before update';
 
     body =
 `            // Collect keys from incoming records
-            Set<String> k1 = new Set<String>();
-            Set<String> k2 = new Set<String>();
+            Set<String> key1Set = new Set<String>();
+            Set<String> key2Set = new Set<String>();
             for (${sobject} rec : newList) {
-                if (rec.ServiceTerritoryId != null) k1.add(rec.ServiceTerritoryId);
-                if (rec.Service__c != null) k2.add(rec.Service__c);
+                if (rec.Field1 != null) key1Set.add(rec.Field1);
+                if (rec.Field2 != null) key2Set.add(rec.Field2);
             }
-            if (k1.isEmpty() && k2.isEmpty()) return;
+            if (key1Set.isEmpty() && key2Set.isEmpty()) return;
 
             // Query related records
             List<SObject> rows = Database.query('${soql}');
             if (rows.isEmpty()) return;
 
             // Build map by composite key
-            Map<String, Id> byKey = new Map<String, Id>();
+            Map<String, Id> compositeKeyMap = new Map<String, Id>();
             for (SObject a : rows) {
                 String key = ${keyExpr};
-                byKey.put(key, (Id)a.get('ServiceResourceId'));
+                compositeKeyMap.put(key, (Id)a.get('ServiceResourceId'));
             }
 
             // Assign value on the same incoming record
             for (${sobject} rec : newList) {
-                String key = String.valueOf(rec.get('ServiceTerritoryId')) + '|' + String.valueOf(rec.get('Service__c'));
-                rec.${dest} = byKey.get(key);
+                String key = String.valueOf(rec.get('Field1')) + '|' + String.valueOf(rec.get('Field2'));
+                rec.${dest} = compositeKeyMap.get(key);
             }`;
 
   } else if (type === 'propagate') {
