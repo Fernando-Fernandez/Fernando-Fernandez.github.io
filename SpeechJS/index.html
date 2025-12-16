@@ -53,6 +53,32 @@
     .pill { background: #0b1128; border: 1px solid var(--border); padding: 4px 8px; border-radius: 999px; font-size: 12px; }
     .k { color: #cbd5e1; }
     .v { color: #eab308; }
+    .wave {
+      display: flex;
+      gap: 4px;
+      align-items: flex-end;
+      height: 28px;
+      margin-top: 10px;
+      opacity: 0;
+      transition: opacity .25s ease;
+    }
+    .wave.active { opacity: 1; }
+    .wave span {
+      width: 6px;
+      background: var(--accent);
+      border-radius: 999px;
+      animation: wave 1s ease-in-out infinite;
+      animation-play-state: paused;
+    }
+    .wave.active span { animation-play-state: running; }
+    .wave span:nth-child(2) { animation-delay: .1s; }
+    .wave span:nth-child(3) { animation-delay: .2s; }
+    .wave span:nth-child(4) { animation-delay: .3s; }
+    .wave span:nth-child(5) { animation-delay: .4s; }
+    @keyframes wave {
+      0%, 100% { transform: scaleY(0.2); }
+      50% { transform: scaleY(1); }
+    }
   </style>
 </head>
 <body>
@@ -128,6 +154,13 @@
         <button id="dictStop">Stop</button>
       </div>
       <div class="small" style="margin-top:8px;">Status: <span id="dictStatus" class="pill">idle</span></div>
+      <div id="dictWave" class="wave" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
       <div id="dictOutput" class="log" style="min-height:100px; margin-top:10px;"></div>
       <div id="dictNote" class="small" style="margin-top:8px; color:#f87171; display:none;">SpeechRecognition is not available in this browser.</div>
     </section>
@@ -157,6 +190,7 @@
       start: $('#dictStart'),
       stop: $('#dictStop'),
       status: $('#dictStatus'),
+      wave: $('#dictWave'),
       out: $('#dictOutput'),
       note: $('#dictNote'),
     };
@@ -327,7 +361,10 @@
 
       let finalTranscript = '';
 
-      const setDictStatus = (state) => { dictEls.status.textContent = state; };
+      const setDictStatus = (state) => {
+        dictEls.status.textContent = state;
+        dictEls.wave?.classList.toggle('active', state === 'listening');
+      };
 
       dictEls.start.onclick = () => {
         try {
