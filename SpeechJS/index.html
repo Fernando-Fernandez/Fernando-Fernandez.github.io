@@ -31,7 +31,7 @@
     textarea { width: 100%; min-height: 220px; resize: vertical; font-size: 14px; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: #0b1128; color: var(--text); }
     label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
     select, input[type="range"], input[type="text"] {
-      width: 100%;
+      width: 90%;
       padding: 8px 10px;
       border-radius: 10px;
       border: 1px solid var(--border);
@@ -119,6 +119,18 @@
     <div class="small" style="margin-top:10px;">
       Notes: SpeechSynthesis requires user interaction to start audio on some platforms. iOS Safari may only expose a few voices and starts speaking only after a tap. Voices are provided by the OS and vary by device and language.
     </div>
+
+    <section class="card" style="margin-top:24px;" id="dictation">
+      <h2 style="margin-top:0;">Speech Recognition / Dictation</h2>
+      <p class="small" style="margin-bottom:12px;">Use the browser's SpeechRecognition API to transcribe your microphone input. Availability varies by browser (Chrome-only on desktop today).</p>
+      <div class="btns">
+        <button id="dictStart" class="primary">Start Dictation</button>
+        <button id="dictStop">Stop</button>
+      </div>
+      <div class="small" style="margin-top:8px;">Status: <span id="dictStatus" class="pill">idle</span></div>
+      <div id="dictOutput" class="log" style="min-height:100px; margin-top:10px;"></div>
+      <div id="dictNote" class="small" style="margin-top:8px; color:#f87171; display:none;">SpeechRecognition is not available in this browser.</div>
+    </section>
   </div>
 
   <script>
@@ -138,6 +150,15 @@
       log: $('#log'),
       status: $('#status'),
       queueSize: $('#queueSize'),
+    };
+
+    const dictEls = {
+      section: $('#dictation'),
+      start: $('#dictStart'),
+      stop: $('#dictStop'),
+      status: $('#dictStatus'),
+      out: $('#dictOutput'),
+      note: $('#dictNote'),
     };
 
     // Keep the exact list/order used in the UI to avoid index drift.
@@ -285,6 +306,67 @@
     } else {
       // Fallback: try again after a tick
       setTimeout(listVoices, 500);
+    }
+
+    initDictation();
+
+    function initDictation() {
+      if (!dictEls.section) return;
+      const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!Recognition) {
+        dictEls.start.disabled = true;
+        dictEls.stop.disabled = true;
+        dictEls.note.style.display = 'block';
+        return;
+      }
+
+      const recognition = new Recognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = navigator.language || 'en-US';
+
+      let finalTranscript = '';
+
+      const setDictStatus = (state) => { dictEls.status.textContent = state; };
+
+      dictEls.start.onclick = () => {
+        try {
+          finalTranscript = '';
+          dictEls.out.textContent = '';
+          setDictStatus('requesting mic');
+          recognition.start();
+        } catch (err) {
+          log('dictation start error:', err.message);
+        }
+      };
+
+      dictEls.stop.onclick = () => {
+        try {
+          recognition.stop();
+        } catch (err) {
+          log('dictation stop error:', err.message);
+        }
+      };
+
+      recognition.onstart = () => setDictStatus('listening');
+      recognition.onend = () => setDictStatus('idle');
+      recognition.onerror = (e) => {
+        setDictStatus('error');
+        log('dictation error:', e.error || e.message);
+      };
+
+      recognition.onresult = (event) => {
+        let interim = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const res = event.results[i];
+          if (res.isFinal) {
+            finalTranscript += res[0].transcript;
+          } else {
+            interim += res[0].transcript;
+          }
+        }
+        dictEls.out.textContent = (finalTranscript + interim).trim();
+      };
     }
   </script>
 </body>
