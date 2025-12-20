@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Salesforce SOQL Reference Cards</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 0;
+      padding: 1.5rem;
+      background: #f5f7fa;
+      color: #1f2937;
+    }
+    h1 {
+      margin-bottom: 1rem;
+    }
+    h2 {
+      margin-top: 2.5rem;
+      margin-bottom: 0.75rem;
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 0.25rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+      gap: 1rem;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      padding: 1rem;
+    }
+    .card h3 {
+      margin-top: 0;
+      margin-bottom: 0.25rem;
+      font-size: 1rem;
+    }
+    .desc {
+      font-size: 0.85rem;
+      color: #4b5563;
+      margin-bottom: 0.5rem;
+    }
+    pre {
+      background: #0f172a;
+      color: #e5e7eb;
+      padding: 0.75rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 0.75rem;
+      line-height: 1.4;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+  </style>
+</head>
+
+<body>
+<h1>Salesforce SOQL and Tooling API Reference</h1>
+
+<h2>Debugging, Logs, and Tracing</h2>
+<div class="grid">
+  <div class="card">
+    <h3>Trace Flags</h3>
+    <div class="desc">Inspect active debug trace flags (Tooling API).</div>
+<pre><code>SELECT Id, TracedEntityId, TracedEntity.Name, LogType,
+       StartDate, ExpirationDate, CreatedDate,
+       CreatedById, CreatedBy.Name,
+       ApexCode, ApexProfiling, Callout, Database,
+       System, Validation, Visualforce, Workflow
+FROM TraceFlag
+ORDER BY ExpirationDate DESC</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Apex Logs (Basic)</h3>
+    <div class="desc">Review recent Apex executions.</div>
+<pre><code>SELECT Id, Status, StartTime, LogUser.Name, Operation
+FROM ApexLog
+ORDER BY StartTime DESC</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Apex Logs (Detailed)</h3>
+    <div class="desc">Performance and execution context.</div>
+<pre><code>SELECT Id, LogUserId, LogUser.Name, LogLength,
+       DurationMilliseconds, Operation,
+       Status, StartTime, Location
+FROM ApexLog
+ORDER BY StartTime DESC</code></pre>
+  </div>
+</div>
+
+<h2>Users, Permissions, and Security</h2>
+<div class="grid">
+  <div class="card">
+    <h3>User Permission Sets</h3>
+    <div class="desc">Non-profile permission sets for a user.</div>
+<pre><code>SELECT Id, PermissionSetId, PermissionSet.Name,
+       AssigneeId, Assignee.UserName, IsActive
+FROM PermissionSetAssignment
+WHERE Assignee.UserName = :username
+AND PermissionSet.IsOwnedByProfile = FALSE</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Contact Center Roles</h3>
+    <div class="desc">Agent, Supervisor, Admin permission sets.</div>
+<pre><code>SELECT AssigneeId, Assignee.Email,
+       PermissionSetId, PermissionSet.Name
+FROM PermissionSetAssignment
+WHERE PermissionSet.Name IN (
+  'ContactCenterAgentExternalTelephony',
+  'ContactCenterSupervisorExternalTelephony',
+  'ContactCenterAdminExternalTelephony'
+)
+ORDER BY AssigneeId</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Field-Level Security</h3>
+    <div class="desc">Field access via profiles and permission sets.</div>
+<pre><code>SELECT Id, PermissionsRead, PermissionsEdit,
+       SobjectType, Field,
+       Parent.Type, Parent.Name,
+       Parent.PermissionSetGroup.DeveloperName,
+       Parent.Profile.Name
+FROM FieldPermissions
+WHERE Field = 'Object__c.Field__c'</code></pre>
+  </div>
+</div>
+
+<h2>Email and Activity Auditing</h2>
+<div class="grid">
+  <div class="card">
+    <h3>Outgoing Emails Today</h3>
+<pre><code>SELECT Id, Subject, EmailTemplateId,
+       FromAddress, ToAddress,
+       ParentId, Status
+FROM EmailMessage
+WHERE MessageDate >= TODAY
+AND Incoming = FALSE</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Email Volume by Year</h3>
+<pre><code>SELECT CALENDAR_YEAR(CreatedDate), COUNT(Id)
+FROM EmailMessage
+GROUP BY CALENDAR_YEAR(CreatedDate)</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Task Volume by Year</h3>
+<pre><code>SELECT CALENDAR_YEAR(CreatedDate), COUNT(Id)
+FROM Task
+GROUP BY CALENDAR_YEAR(CreatedDate)</code></pre>
+  </div>
+</div>
+
+<h2>Call Center and Voice</h2>
+<div class="grid">
+  <div class="card">
+    <h3>Active Users with Call Center</h3>
+<pre><code>SELECT Id, UserName, CallCenterId
+FROM User
+WHERE IsActive = true
+AND CallCenterId != NULL</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Call Center Config</h3>
+<pre><code>SELECT Id, Name, CustomSettings
+FROM CallCenter
+WHERE Id = '04vVC0000009WBxYAM'</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Softphone Settings (JSON)</h3>
+<pre><code>{
+  "reqTimeout":"5000",
+  "reqStandbyUrl":"https://domain:port/softphone",
+  "reqCallCenterType":"SCVBYOT",
+  "reqSoftphoneHeight":"300",
+  "reqUseApi":"true",
+  "reqSoftphoneWidth":"500",
+  "reqSalesforceCompatibilityMode":"Lightning"
+}</code></pre>
+  </div>
+</div>
+
+<h2>Flows and Automation</h2>
+<div class="grid">
+  <div class="card">
+    <h3>Flow Interviews</h3>
+<pre><code>SELECT Id, Name, CurrentElement,
+       InterviewLabel, InterviewStatus, Error
+FROM FlowInterview
+ORDER BY InterviewLabel</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Flow Versions and Durable IDs</h3>
+<pre><code>SELECT Id, FlowDefinitionView.ApiName,
+       VersionNumber, Status, Label, DurableId
+FROM FlowVersionView
+WHERE FlowDefinitionView.ApiName LIKE '%flow%'
+AND VersionNumber < 60
+ORDER BY VersionNumber DESC</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Tooling API Flow Delete</h3>
+<pre><code>DELETE /services/data/v58.0/tooling/sobjects/Flow/301Dy000000N9VWIA0</code></pre>
+  </div>
+</div>
+
+<h2>Metadata and Dependency Analysis</h2>
+<div class="grid">
+  <div class="card">
+    <h3>Custom Field IDs</h3>
+<pre><code>SELECT Id, DeveloperName
+FROM CustomField
+WHERE EntityDefinition.QualifiedApiName = 'Account'</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Metadata Dependencies</h3>
+<pre><code>SELECT MetadataComponentType, MetadataComponentName,
+       RefMetadataComponentName, RefMetadataComponentId
+FROM MetadataComponentDependency
+WHERE RefMetadataComponentId IN (
+  '00Nfj00001vt9qvEAA',
+  '00Nfj000022m2N7EAI'
+)
+ORDER BY RefMetadataComponentName</code></pre>
+  </div>
+</div>
+
+<h2>Files and Content</h2>
+<div class="grid">
+  <div class="card">
+    <h3>Largest Files</h3>
+<pre><code>SELECT Id, Title, ParentId,
+       Description, ContentSize, FileType
+FROM ContentDocument
+ORDER BY ContentSize DESC
+LIMIT 50</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Files Linked to Record</h3>
+<pre><code>SELECT Id, ContentDocumentId, LinkedEntityId,
+       ShareType, Visibility
+FROM ContentDocumentLink
+WHERE LinkedEntityId = 'a0S1F000001AO96UAG'</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Public File Links</h3>
+<pre><code>SELECT Id, Name, DistributionPublicUrl,
+       ContentVersionId, ContentVersion.Title,
+       ContentDocumentId
+FROM ContentDistribution
+WHERE ContentDocumentId = '0691F000000GfYPQA0'</code></pre>
+  </div>
+</div>
+
+<h2>Routing and Agent Work</h2>
+<div class="grid">
+  <div class="card">
+    <h3>Agent Work by Service Channel</h3>
+<pre><code>SELECT Id, Name, PendingServiceRoutingId,
+       RoutingModel, RoutingPriority,
+       RoutingType, ServiceChannelId
+FROM AgentWork
+WHERE ServiceChannelId = '0N9590000004CIK'</code></pre>
+  </div>
+</div>
+
+<h2>Org Auditing and CLI</h2>
+<div class="grid">
+  <div class="card">
+    <h3>Setup Audit Trail (CSV)</h3>
+<pre><code>sfdx force:data:soql:query -q "
+SELECT Id, Action, Section, CreatedDate,
+       CreatedBy.Name, Display
+FROM SetupAuditTrail
+ORDER BY CreatedDate DESC
+" --resultformat csv > _SetupAuditTrail.csv</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Recent Login History</h3>
+    <div class="desc">Spot unusual login sources or statuses in the past week.</div>
+<pre><code>SELECT Id, CreatedDate, UserId, User.Name,
+       LoginType, SourceIp, Status,
+       LoginGeo.City, LoginGeo.Country
+FROM LoginHistory
+WHERE CreatedDate = LAST_N_DAYS:7
+ORDER BY CreatedDate DESC
+LIMIT 200</code></pre>
+  </div>
+</div>
+
+</body>
+</html>
