@@ -73,6 +73,25 @@
       overflow-x: auto;
       font-size: 0.75rem;
       line-height: 1.4;
+      cursor: pointer;
+      position: relative;
+    }
+    pre::after {
+      content: 'Copy';
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: rgba(255,255,255,0.1);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      color: #fcd34d;
+    }
+    pre.copied::after {
+      content: 'Copied!';
+      color: #4ade80;
     }
     code {
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -337,6 +356,35 @@ ORDER BY CreatedDate DESC
 LIMIT 200</code></pre>
   </div>
 </div>
+
+<script>
+  (function attachCodeCopyHandlers() {
+    const blocks = document.querySelectorAll('pre code');
+    blocks.forEach(block => {
+      const pre = block.closest('pre');
+      if (!pre) return;
+      block.setAttribute('tabindex', '0');
+
+      async function copyContent() {
+        try {
+          await navigator.clipboard.writeText(block.innerText);
+          pre.classList.add('copied');
+          setTimeout(() => pre.classList.remove('copied'), 1500);
+        } catch (err) {
+          console.error('Clipboard copy failed', err);
+        }
+      }
+
+      block.addEventListener('click', copyContent);
+      block.addEventListener('keypress', evt => {
+        if (evt.key === 'Enter' || evt.key === ' ') {
+          evt.preventDefault();
+          copyContent();
+        }
+      });
+    });
+  })();
+</script>
 
 </body>
 </html>
