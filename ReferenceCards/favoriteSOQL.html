@@ -4,12 +4,19 @@
   <meta charset="UTF-8" />
   <title>Salesforce SOQL Reference Cards</title>
   <style>
+    :root {
+      --pastel-yellow: #fef9c3;
+      --pastel-blue: #e0f2fe;
+      --pastel-purple: #ede9fe;
+      --pastel-pink: #ffe4e6;
+      --text-dark: #1f2937;
+    }
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
       margin: 0;
       padding: 1.5rem;
-      background: #f5f7fa;
-      color: #1f2937;
+      background: linear-gradient(135deg, #fdf2f8 0%, #e0f2fe 50%, #fef9c3 100%);
+      color: var(--text-dark);
     }
     h1 {
       margin-bottom: 1rem;
@@ -30,6 +37,23 @@
       border-radius: 8px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.08);
       padding: 1rem;
+      border-top: 4px solid rgba(0,0,0,0.05);
+    }
+    .grid .card:nth-child(4n+1) {
+      background: linear-gradient(135deg, var(--pastel-yellow), #fff);
+      border-top-color: #facc15;
+    }
+    .grid .card:nth-child(4n+2) {
+      background: linear-gradient(135deg, var(--pastel-blue), #fff);
+      border-top-color: #38bdf8;
+    }
+    .grid .card:nth-child(4n+3) {
+      background: linear-gradient(135deg, var(--pastel-purple), #fff);
+      border-top-color: #a855f7;
+    }
+    .grid .card:nth-child(4n+4) {
+      background: linear-gradient(135deg, var(--pastel-pink), #fff);
+      border-top-color: #fb7185;
     }
     .card h3 {
       margin-top: 0;
