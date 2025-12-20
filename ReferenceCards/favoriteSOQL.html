@@ -177,6 +177,7 @@ WHERE Id = '04vVC0000009WBxYAM'</code></pre>
 
   <div class="card">
     <h3>Softphone Settings (JSON)</h3>
+    <div class="desc">reqCallCenterType can be SCVBYOT, SCVOOTBTelephony, ...</div>
 <pre><code>{
   "reqTimeout":"5000",
   "reqStandbyUrl":"https://domain:port/softphone",
@@ -201,6 +202,7 @@ ORDER BY InterviewLabel</code></pre>
 
   <div class="card">
     <h3>Flow Versions and Durable IDs</h3>
+    <div class="desc">DurableId is the Id to delete.</div>
 <pre><code>SELECT Id, FlowDefinitionView.ApiName,
        VersionNumber, Status, Label, DurableId
 FROM FlowVersionView
@@ -270,6 +272,7 @@ WHERE ContentDocumentId = '0691F000000GfYPQA0'</code></pre>
 <div class="grid">
   <div class="card">
     <h3>Agent Work by Service Channel</h3>
+    <div class="desc">Purpose: Resolve error "This service channel is referenced elsewhere in Salesforce. Agent Work" (delete these rows).</div>
 <pre><code>SELECT Id, Name, PendingServiceRoutingId,
        RoutingModel, RoutingPriority,
        RoutingType, ServiceChannelId
@@ -281,7 +284,7 @@ WHERE ServiceChannelId = '0N9590000004CIK'</code></pre>
 <h2>Org Auditing and CLI</h2>
 <div class="grid">
   <div class="card">
-    <h3>Setup Audit Trail (CSV)</h3>
+    <h3>Setup Audit Trail as CSV</h3>
 <pre><code>sfdx force:data:soql:query -q "
 SELECT Id, Action, Section, CreatedDate,
        CreatedBy.Name, Display
