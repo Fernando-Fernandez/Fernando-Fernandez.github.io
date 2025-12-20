@@ -233,9 +233,17 @@ WHERE EntityDefinition.QualifiedApiName = 'Account'</code></pre>
 FROM MetadataComponentDependency
 WHERE RefMetadataComponentId IN (
   '00Nfj00001vt9qvEAA',
-  '00Nfj000022m2N7EAI'
+      '00Nfj000022m2N7EAI'
 )
 ORDER BY RefMetadataComponentName</code></pre>
+  </div>
+
+  <div class="card">
+    <h3>Apex Classes by Size</h3>
+    <div class="desc">Find the largest classes to target for refactoring or splitting.</div>
+<pre><code>SELECT Name, LengthWithoutComments
+FROM ApexClass
+ORDER BY LengthWithoutComments DESC</code></pre>
   </div>
 </div>
 
