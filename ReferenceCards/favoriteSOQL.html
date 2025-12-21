@@ -122,6 +122,7 @@ ORDER BY ExpirationDate DESC</code></pre>
 <pre><code>SELECT Id, Status, StartTime, LogUser.Name, Operation
 FROM ApexLog
 ORDER BY StartTime DESC</code></pre>
+<pre><code>sf hardis:org:purge:apexlog --target-org myOrg</code></pre>
   </div>
 
   <div class="card">
@@ -241,6 +242,7 @@ WHERE Id = '04vVC0000009WBxYAM'</code></pre>
        InterviewLabel, InterviewStatus, Error
 FROM FlowInterview
 ORDER BY InterviewLabel</code></pre>
+<pre><code>sf hardis:org:purge:flow --target-org myOrg --delete-flow-interviews</code></pre>
   </div>
 
   <div class="card">
