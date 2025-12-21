@@ -281,6 +281,7 @@ WHERE RefMetadataComponentId IN (
       '00Nfj000022m2N7EAI'
 )
 ORDER BY RefMetadataComponentName</code></pre>
+<pre><code>sf hardis:doc:fieldusage --target-org myOrg --sObjects CustomObject__c</code></pre>
   </div>
 
   <div class="card">
@@ -344,6 +345,8 @@ SELECT Id, Action, Section, CreatedDate,
 FROM SetupAuditTrail
 ORDER BY CreatedDate DESC
 " --resultformat csv > _SetupAuditTrail.csv</code></pre>
+<pre><code>sf hardis:org:diagnose:audittrail</code></pre>
+
   </div>
 
   <div class="card">
