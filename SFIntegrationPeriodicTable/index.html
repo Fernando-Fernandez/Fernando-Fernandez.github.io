@@ -6,14 +6,13 @@
   <title>Salesforce Integration Patterns - Mini Periodic Table</title>
   <style>
     :root{
-      --bg:#0b1020;
-      --panel:#111a33;
-      --card:#151f3f;
-      --card2:#101a36;
-      --text:#e8ecff;
-      --muted:#aeb7e6;
-      --border:rgba(255,255,255,.12);
-      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --bg:#ffffff;
+      --panel:#f6f7fb;
+      --card:#ffffff;
+      --text:#0f172a;
+      --muted:#4b5563;
+      --border:rgba(15,23,42,.08);
+      --shadow: 0 12px 30px rgba(15,23,42,.08);
       --radius:14px;
       --gap:14px;
 
@@ -30,10 +29,7 @@
     body{
       margin:0;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
-      background: radial-gradient(1200px 700px at 30% 10%, rgba(93,214,255,.15), transparent 60%),
-                  radial-gradient(900px 600px at 80% 30%, rgba(255,111,174,.10), transparent 60%),
-                  radial-gradient(900px 600px at 40% 90%, rgba(125,255,154,.10), transparent 60%),
-                  var(--bg);
+      background: var(--bg);
       color:var(--text);
       padding:24px;
     }
@@ -73,7 +69,7 @@
       gap:8px;
       align-items:center;
       padding:6px 10px;
-      background: rgba(255,255,255,.06);
+      background: rgba(15,23,42,.04);
       border:1px solid var(--border);
       border-radius:999px;
       font-size:12px;
@@ -95,7 +91,7 @@
     }
 
     .table{
-      background: rgba(255,255,255,.04);
+      background: #fff;
       border:1px solid var(--border);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
@@ -104,9 +100,9 @@
 
     .tableHeader{
       display:grid;
-      grid-template-columns: repeat(5, minmax(190px, 1fr));
+      grid-template-columns: repeat(5, minmax(160px, 1fr));
       gap:0;
-      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      background: linear-gradient(180deg, rgba(15,23,42,.04), rgba(15,23,42,.02));
       border-bottom:1px solid var(--border);
     }
     .colHead{
@@ -124,7 +120,7 @@
 
     .grid{
       display:grid;
-      grid-template-columns: repeat(5, minmax(190px, 1fr));
+      grid-template-columns: repeat(5, minmax(160px, 1fr));
       gap:0;
     }
 
@@ -133,7 +129,7 @@
       border-right:1px solid var(--border);
       border-bottom:1px solid var(--border);
       min-height: 160px;
-      background: rgba(0,0,0,.08);
+      background: rgba(15,23,42,.02);
     }
     .cell:nth-child(5n){ border-right:none; } /* last col */
 
@@ -145,18 +141,19 @@
 
     .card{
       position:relative;
-      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
-      border:1px solid var(--border);
+      background: var(--card-color, var(--card));
+      border:none;
       border-radius: 12px;
       padding:10px 10px 10px 12px;
       cursor:pointer;
-      transition: transform .12s ease, border-color .12s ease, background .12s ease;
+      transition: transform .18s ease, box-shadow .18s ease;
       outline:none;
+      box-shadow: 0 10px 22px rgba(15,23,42,.12);
+      color: #0b1220;
     }
     .card:hover{
-      transform: translateY(-2px);
-      border-color: rgba(255,255,255,.22);
-      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+      transform: translateY(-3px);
+      box-shadow: 0 16px 26px rgba(15,23,42,.18);
     }
 
     .bar{
@@ -179,22 +176,24 @@
       font-weight:700;
       font-size:13px;
       line-height:1.25;
+      color:#fff;
+      text-shadow:0 1px 2px rgba(0,0,0,.35);
     }
     .abbr{
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       font-size:12px;
-      color:rgba(255,255,255,.85);
-      opacity:.9;
+      color:#fff;
+      opacity:.95;
       padding:2px 6px;
       border-radius:999px;
-      background: rgba(0,0,0,.18);
-      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.28);
+      border:1px solid rgba(255,255,255,.25);
       user-select:none;
     }
     .desc{
       margin-top:6px;
       font-size:12px;
-      color:var(--muted);
+      color:rgba(12,23,42,.9);
       line-height:1.35;
     }
 
@@ -206,9 +205,9 @@
     }
     .tag{
       font-size:11px;
-      color:rgba(255,255,255,.78);
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(0,0,0,.16);
+      color:rgba(15,23,42,.65);
+      border:1px solid rgba(15,23,42,.14);
+      background: rgba(255,255,255,.65);
       padding:3px 6px;
       border-radius:999px;
       user-select:none;
@@ -226,10 +225,10 @@
       backdrop-filter: blur(4px);
     }
     .modal{
-      background: rgba(17,26,51,.96);
-      border:1px solid rgba(255,255,255,.14);
+      background: whitesmoke;
+      border:1px solid rgba(15,23,42,.08);
       border-radius: 18px;
-      box-shadow: 0 20px 60px rgba(0,0,0,.55);
+      box-shadow: 0 24px 70px rgba(15,23,42,.25);
       overflow:hidden;
     }
     .modalTop{
@@ -238,8 +237,8 @@
       justify-content:space-between;
       gap:16px;
       padding:16px 16px 12px 16px;
-      border-bottom:1px solid rgba(255,255,255,.12);
-      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      border-bottom:1px solid rgba(15,23,42,.06);
+      background: linear-gradient(180deg, rgba(255,255,255,1), rgba(255,255,255,.8));
     }
     .modalTitle{
       margin:0;
@@ -255,15 +254,15 @@
     }
     .closeBtn{
       appearance:none;
-      border:1px solid rgba(255,255,255,.16);
-      background: rgba(0,0,0,.2);
-      color:rgba(255,255,255,.9);
+      border:1px solid rgba(15,23,42,.12);
+      background: rgba(15,23,42,.06);
+      color:var(--text);
       border-radius: 12px;
       padding:8px 10px;
       cursor:pointer;
       font-size:12px;
     }
-    .closeBtn:hover{ border-color: rgba(255,255,255,.26); }
+    .closeBtn:hover{ border-color: rgba(15,23,42,.26); }
 
     .modalBody{
       padding:14px 16px 16px 16px;
@@ -272,8 +271,8 @@
       gap:12px;
     }
     .section{
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(0,0,0,.18);
+      border:1px solid rgba(15,23,42,.08);
+      background: #fff;
       border-radius: 14px;
       padding:12px;
     }
@@ -282,7 +281,7 @@
       font-size:12px;
       letter-spacing:.4px;
       text-transform:uppercase;
-      color:rgba(255,255,255,.85);
+      color:var(--text);
     }
     .section p{
       margin:0;
@@ -300,7 +299,7 @@
 
     /* Responsive */
     @media (max-width: 1020px){
-      .tableHeader, .grid{ grid-template-columns: repeat(2, minmax(190px, 1fr)); }
+      .tableHeader, .grid{ grid-template-columns: repeat(2, minmax(150px, 1fr)); }
       .cell:nth-child(2n){ border-right:none; }
       .cell:nth-child(5n){ border-right:1px solid var(--border); } /* neutralize */
     }
@@ -531,6 +530,7 @@
       const card = document.createElement("button");
       card.type = "button";
       card.className = "card";
+      card.style.setProperty("--card-color", `var(${pattern.colorVar})`);
       card.setAttribute("title", item.tip);
       card.dataset.cardId = item.id;
       card.dataset.pattern = pattern.key;
@@ -571,7 +571,10 @@
       }
       card.appendChild(tags);
 
-      card.addEventListener("click", () => openModal(item, pattern));
+      card.addEventListener("click", () => {
+        const rect = card.getBoundingClientRect();
+        openModal(item, pattern, rect);
+      });
       return card;
     }
 
@@ -583,8 +586,9 @@
     const modalFit = document.getElementById("modalFit");
     const modalUse = document.getElementById("modalUse");
     const closeBtn = document.getElementById("closeBtn");
+    const modalShell = dlg.querySelector(".modal");
 
-    function openModal(item, pattern){
+    function openModal(item, pattern, sourceRect){
       modalTitle.textContent = item.name;
       modalMeta.textContent = `Opened from pattern: ${pattern.label} | Card key: ${item.abbr}`;
       modalWhat.textContent = item.detail.what;
@@ -592,7 +596,10 @@
       fillList(modalFit, item.detail.fit || []);
       fillList(modalUse, item.detail.use || []);
 
-      if(typeof dlg.showModal === "function") dlg.showModal();
+      if(typeof dlg.showModal === "function"){
+        dlg.showModal();
+        requestAnimationFrame(() => animateModalOpening(sourceRect));
+      }
       else alert(item.name + "\n\n" + item.detail.what);
     }
 
@@ -618,6 +625,29 @@
                        e.clientY >= rect.top && e.clientY <= rect.bottom;
       if(!inDialog) dlg.close();
     });
+
+    function animateModalOpening(sourceRect){
+      if(!sourceRect || !modalShell || typeof modalShell.animate !== "function") return;
+      const modalRect = modalShell.getBoundingClientRect();
+      const originX = clamp(((sourceRect.left + sourceRect.width / 2) - modalRect.left) / modalRect.width);
+      const originY = clamp(((sourceRect.top + sourceRect.height / 2) - modalRect.top) / modalRect.height);
+      const origin = `${originX * 100}% ${originY * 100}%`;
+
+      modalShell.animate(
+        [
+          { transformOrigin: origin, transform: "scale(0.6)", opacity: 0, filter: "blur(6px)" },
+          { transformOrigin: origin, transform: "scale(1)", opacity: 1, filter: "blur(0)" }
+        ],
+        {
+          duration: 360,
+          easing: "cubic-bezier(0.16, 1, 0.3, 1)"
+        }
+      );
+    }
+
+    function clamp(value, min = 0, max = 1){
+      return Math.min(Math.max(value, min), max);
+    }
 
     // 😼 Quick critical-thinking hooks (optional): uncomment to see pattern overlaps in console
     // console.table(CARDS.map(c => ({ name: c.name, patterns: c.patterns.join(", ") })));
