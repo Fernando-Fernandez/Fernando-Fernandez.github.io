@@ -100,7 +100,7 @@
 
     .tableHeader{
       display:grid;
-      grid-template-columns: repeat(5, minmax(160px, 1fr));
+      grid-template-columns: repeat(5, minmax(140px, 1fr));
       gap:0;
       background: linear-gradient(180deg, rgba(15,23,42,.04), rgba(15,23,42,.02));
       border-bottom:1px solid var(--border);
@@ -120,7 +120,7 @@
 
     .grid{
       display:grid;
-      grid-template-columns: repeat(5, minmax(160px, 1fr));
+      grid-template-columns: repeat(5, minmax(140px, 1fr));
       gap:0;
     }
 
@@ -130,13 +130,18 @@
       border-bottom:1px solid var(--border);
       min-height: 160px;
       background: rgba(15,23,42,.02);
+      display:flex;
+      justify-content:center;
     }
     .cell:nth-child(5n){ border-right:none; } /* last col */
 
     .stack{
-      display:flex;
-      flex-direction:column;
+      width:100%;
+      max-width: var(--stack-max-width, 160px);
+      display:grid;
+      grid-template-columns: repeat(var(--card-columns, 1), minmax(120px, 1fr));
       gap:10px;
+      margin:0 auto;
     }
 
     .card{
@@ -150,6 +155,7 @@
       outline:none;
       box-shadow: 0 10px 22px rgba(15,23,42,.12);
       color: #0b1220;
+      width:100%;
     }
     .card:hover{
       transform: translateY(-3px);
@@ -197,25 +203,9 @@
       line-height:1.35;
     }
 
-    .tags{
-      margin-top:8px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:6px;
-    }
-    .tag{
-      font-size:11px;
-      color:rgba(15,23,42,.65);
-      border:1px solid rgba(15,23,42,.14);
-      background: rgba(255,255,255,.65);
-      padding:3px 6px;
-      border-radius:999px;
-      user-select:none;
-    }
-
     /* Modal */
     dialog{
-      width:min(900px, calc(100% - 24px));
+      width:min(620px, calc(100% - 32px));
       border:none;
       padding:0;
       background: transparent;
@@ -299,7 +289,7 @@
 
     /* Responsive */
     @media (max-width: 1020px){
-      .tableHeader, .grid{ grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+      .tableHeader, .grid{ grid-template-columns: repeat(2, minmax(140px, 1fr)); }
       .cell:nth-child(2n){ border-right:none; }
       .cell:nth-child(5n){ border-right:1px solid var(--border); } /* neutralize */
     }
@@ -450,7 +440,7 @@
         use: ["Batch harmonization/processing within Customer 360 data pipelines."]
       }),
 
-      // Remote Call In (some repeated already via tags)
+      // Remote Call In (some repeated across columns)
       mk("Salesforce Knowledge Developer API", "KN", ["remote","req"], {
         what: "Build knowledge base integrations via multiple platform APIs.",
         fit: ["Commonly used by external systems calling into Salesforce to manage knowledge assets."],
@@ -503,6 +493,9 @@
 
       const stack = document.createElement("div");
       stack.className = "stack";
+      const isRequestColumn = p.key === "req";
+      stack.style.setProperty("--card-columns", isRequestColumn ? 2 : 1);
+      stack.style.setProperty("--stack-max-width", isRequestColumn ? "320px" : "160px");
       el.appendChild(stack);
 
       grid.appendChild(el);
@@ -558,18 +551,6 @@
       desc.className = "desc";
       desc.textContent = item.detail.what;
       card.appendChild(desc);
-
-      const tags = document.createElement("div");
-      tags.className = "tags";
-      for(const pk of item.patterns){
-        const p = PATTERNS.find(x => x.key === pk);
-        if(!p) continue;
-        const t = document.createElement("span");
-        t.className = "tag";
-        t.textContent = p.label;
-        tags.appendChild(t);
-      }
-      card.appendChild(tags);
 
       card.addEventListener("click", () => {
         const rect = card.getBoundingClientRect();
