@@ -100,7 +100,7 @@
 
     .tableHeader{
       display:grid;
-      grid-template-columns: minmax(182px, 1.3fr) repeat(4, minmax(140px, 1fr));
+      grid-template-columns: minmax(210px, 1.5fr) repeat(3, minmax(120px, .9fr)) minmax(210px, 1.5fr);
       gap:0;
       background: linear-gradient(180deg, rgba(15,23,42,.04), rgba(15,23,42,.02));
       border-bottom:1px solid var(--border);
@@ -120,7 +120,7 @@
 
     .grid{
       display:grid;
-      grid-template-columns: minmax(182px, 1.3fr) repeat(4, minmax(140px, 1fr));
+      grid-template-columns: minmax(210px, 1.5fr) repeat(3, minmax(120px, .9fr)) minmax(210px, 1.5fr);
       gap:0;
     }
 
@@ -193,9 +193,8 @@
       line-height:1.25;
       color:#fff;
       text-shadow:0 1px 2px rgba(0,0,0,.35);
-      overflow:hidden;
-      text-overflow:ellipsis;
-      white-space:nowrap;
+      white-space:normal;
+      word-break:break-word;
     }
     .abbr{
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
@@ -216,10 +215,8 @@
       color:rgba(12,23,42,.9);
       line-height:1.35;
       flex:1 1 auto;
-      display:-webkit-box;
-      -webkit-line-clamp:4;
-      -webkit-box-orient:vertical;
       overflow:hidden;
+      word-break:break-word;
     }
 
     /* Modal */
@@ -513,8 +510,11 @@
       const stack = document.createElement("div");
       stack.className = "stack";
       const isRequestColumn = p.key === "req";
-      stack.style.setProperty("--card-columns", isRequestColumn ? 2 : 1);
-      stack.style.setProperty("--stack-max-width", isRequestColumn ? "100%" : "160px");
+      const isVirtualColumn = p.key === "virt";
+      const columnCount = (isRequestColumn || isVirtualColumn) ? 2 : 1;
+      const maxWidth = (isRequestColumn || isVirtualColumn) ? "100%" : "160px";
+      stack.style.setProperty("--card-columns", columnCount);
+      stack.style.setProperty("--stack-max-width", maxWidth);
       el.appendChild(stack);
 
       grid.appendChild(el);
