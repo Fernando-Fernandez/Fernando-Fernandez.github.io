@@ -12,9 +12,9 @@
       --text:#0f172a;
       --muted:#4b5563;
       --border:rgba(15,23,42,.08);
-      --shadow: 0 12px 30px rgba(15,23,42,.08);
+      --shadow: 0 8px 20px rgba(15,23,42,.08);
       --radius:14px;
-      --gap:14px;
+      --gap:10px;
 
       /* Pattern accent colors */
       --req:#5dd6ff;
@@ -31,15 +31,15 @@
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
       background: var(--bg);
       color:var(--text);
-      padding:24px;
+      padding:16px;
     }
 
     header{
       display:flex;
-      gap:16px;
+      gap:12px;
       align-items:flex-start;
       justify-content:space-between;
-      margin-bottom:18px;
+      margin-bottom:12px;
     }
 
     h1{
@@ -59,7 +59,7 @@
     .legend{
       display:flex;
       flex-wrap:wrap;
-      gap:8px 10px;
+      gap:6px 8px;
       align-items:center;
       justify-content:flex-end;
       margin-top:2px;
@@ -68,7 +68,7 @@
       display:inline-flex;
       gap:8px;
       align-items:center;
-      padding:6px 10px;
+      padding:4px 8px;
       background: rgba(15,23,42,.04);
       border:1px solid var(--border);
       border-radius:999px;
@@ -100,13 +100,14 @@
 
     .tableHeader{
       display:grid;
-      grid-template-columns: minmax(210px, 1.5fr) repeat(3, minmax(120px, .9fr)) minmax(210px, 1.5fr);
-      gap:0;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap:6px;
+      padding:6px;
       background: linear-gradient(180deg, rgba(15,23,42,.04), rgba(15,23,42,.02));
       border-bottom:1px solid var(--border);
     }
     .colHead{
-      padding:12px 12px;
+      padding:10px;
       font-weight:700;
       font-size:12px;
       letter-spacing:.5px;
@@ -120,29 +121,28 @@
 
     .grid{
       display:grid;
-      grid-template-columns: minmax(210px, 1.5fr) repeat(3, minmax(120px, .9fr)) minmax(210px, 1.5fr);
-      gap:0;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap:6px;
+      padding:6px;
     }
 
     .cell{
-      padding:12px;
-      border-right:1px solid var(--border);
-      border-bottom:1px solid var(--border);
+      padding:0;
+      border:1px solid var(--border);
       min-height: 160px;
       background: rgba(15,23,42,.02);
       display:flex;
       justify-content:center;
       align-items:flex-start;
+      border-radius: 12px;
     }
-    .cell:nth-child(5n){ border-right:none; } /* last col */
 
     .stack{
       width:100%;
-      max-width: var(--stack-max-width, 160px);
+      max-width:100%;
       display:grid;
-      grid-template-columns: repeat(var(--card-columns, 1), minmax(120px, 1fr));
-      gap:10px;
-      margin:0 auto;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap:6px;
       align-content:flex-start;
     }
 
@@ -151,17 +151,17 @@
       background: var(--card-color, var(--card));
       border:none;
       border-radius: 12px;
-      padding:12px 12px 12px 16px;
+      padding:5px 5px 5px 5px;
       cursor:pointer;
       transition: transform .18s ease, box-shadow .18s ease;
       outline:none;
       box-shadow: 0 10px 22px rgba(15,23,42,.12);
       color: #0b1220;
       width:100%;
-      height: var(--card-height, 160px);
+      min-height: var(--card-height, 110px);
       display:flex;
       flex-direction:column;
-      gap:8px;
+      gap:6px;
       overflow:hidden;
     }
     .card:hover{
@@ -180,10 +180,7 @@
     }
 
     .row{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:10px;
+      display:block;
       flex-shrink:0;
       min-width:0;
     }
@@ -196,21 +193,8 @@
       white-space:normal;
       word-break:break-word;
     }
-    .abbr{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size:12px;
-      color:#fff;
-      opacity:.95;
-      padding:2px 6px;
-      border-radius:999px;
-      background: rgba(0,0,0,.28);
-      border:1px solid rgba(255,255,255,.25);
-      user-select:none;
-      flex-shrink:0;
-      align-self:flex-start;
-    }
     .desc{
-      margin-top:6px;
+      margin-top:4px;
       font-size:12px;
       color:rgba(12,23,42,.9);
       line-height:1.35;
@@ -384,112 +368,439 @@
 
     // Cards can repeat across patterns: include multiple entries with different pattern keys.
     // Keep these concise; you can expand later.
-    const CARDS = [
+    const CARD_DEFS = [
       // Request & Response
-      mk("Lightning Platform REST API", "REST", ["req","remote"], {
-        what: "Salesforce core REST API for platform resources.",
-        fit: ["Synchronous request/response over HTTP.", "Often used by web/mobile/backends to CRUD and query data."],
-        use: ["When caller needs immediate result.", "When you want broad ecosystem support and simple contracts."]
-      }),
-      mk("Lightning Platform SOAP API", "SOAP", ["req","remote"], {
-        what: "SOAP-based API for platform resources.",
-        fit: ["Strong schema and enterprise tooling fit.", "Synchronous call model (with async patterns layered on top)."],
-        use: ["When WSDL-driven clients and strict schemas are preferred.", "When legacy enterprise integration tooling expects SOAP."]
-      }),
-      mk("Apex Web Services", "AWS", ["req","remote"], {
-        what: "Expose Apex classes as REST or SOAP services.",
-        fit: ["External systems call into Salesforce-hosted logic.", "Still request/response at transport level."],
-        use: ["When you must enforce org-side business rules on inbound calls.", "When you need a custom contract beyond standard objects."]
-      }),
-      mk("User Interface API", "UI", ["req"], {
-        what: "API for building Salesforce UI experiences in custom apps.",
-        fit: ["Synchronous retrieval of UI metadata, layouts, and data needed to render screens."],
-        use: ["When you want Salesforce-consistent UI behavior outside standard UI.", "Mobile or custom web apps needing layout-aware rendering."]
-      }),
-      mk("Connect REST API", "C-REST", ["req"], {
-        what: "API surface including Chatter and collaboration constructs.",
-        fit: ["Interactive, synchronous operations for collaboration features."],
-        use: ["Intranet/mobile integrations that need feeds, comments, users, groups."]
-      }),
-      mk("Reports and Dashboards REST API", "RPT", ["req"], {
-        what: "Programmatic access to reports and dashboard results.",
-        fit: ["Client requests a report result set; response returned."],
-        use: ["Embedding analytics in portals/apps.", "Automating exports and scheduled retrieval patterns."]
-      }),
-      mk("Platform Encryption REST API", "ENC", ["req"], {
-        what: "Manage tenant secrets outside of Salesforce.",
-        fit: ["Direct calls to manage encryption secrets and related operations."],
-        use: ["Security operations workflows.", "Compliance-driven key management integrations."]
-      }),
+      {
+        name: "Lightning Platform REST API",
+        abbr: "REST",
+        patterns: ["req","remote"],
+        detail: {
+          what: "Salesforce core REST API for platform resources.",
+          fit: ["Synchronous request/response over HTTP.", "Often used by web/mobile/backends to CRUD and query data."],
+          use: ["When caller needs immediate result.", "When you want broad ecosystem support and simple contracts."]
+        }
+      },
+      {
+        name: "Lightning Platform SOAP API",
+        abbr: "SOAP",
+        patterns: ["req","remote"],
+        detail: {
+          what: "SOAP-based API for platform resources.",
+          fit: ["Strong schema and enterprise tooling fit.", "Synchronous call model (with async patterns layered on top)."],
+          use: ["When WSDL-driven clients and strict schemas are preferred.", "When legacy enterprise integration tooling expects SOAP."]
+        }
+      },
+      {
+        name: "Apex Web Services",
+        abbr: "AWS",
+        patterns: ["req","remote"],
+        detail: {
+          what: "Expose Apex classes as REST or SOAP services.",
+          fit: ["External systems call into Salesforce-hosted logic.", "Still request/response at transport level."],
+          use: ["When you must enforce org-side business rules on inbound calls.", "When you need a custom contract beyond standard objects."]
+        }
+      },
+      {
+        name: "User Interface API",
+        abbr: "UI",
+        patterns: ["req"],
+        detail: {
+          what: "API for building Salesforce UI experiences in custom apps.",
+          fit: ["Synchronous retrieval of UI metadata, layouts, and data needed to render screens."],
+          use: ["When you want Salesforce-consistent UI behavior outside standard UI.", "Mobile or custom web apps needing layout-aware rendering."]
+        }
+      },
+      {
+        name: "Connect REST API",
+        abbr: "C-REST",
+        patterns: ["req"],
+        detail: {
+          what: "API surface including Chatter and collaboration constructs.",
+          fit: ["Interactive, synchronous operations for collaboration features."],
+          use: ["Intranet/mobile integrations that need feeds, comments, users, groups."]
+        }
+      },
+      {
+        name: "Reports and Dashboards REST API",
+        abbr: "RPT",
+        patterns: ["req"],
+        detail: {
+          what: "Programmatic access to reports and dashboard results.",
+          fit: ["Client requests a report result set; response returned."],
+          use: ["Embedding analytics in portals/apps.", "Automating exports and scheduled retrieval patterns."]
+        }
+      },
+      {
+        name: "Platform Encryption REST API",
+        abbr: "ENC",
+        patterns: ["req"],
+        detail: {
+          what: "Manage tenant secrets outside of Salesforce.",
+          fit: ["Direct calls to manage encryption secrets and related operations."],
+          use: ["Security operations workflows.", "Compliance-driven key management integrations."]
+        }
+      },
 
       // Fire & Forget
-      mk("Platform Events", "PE", ["faf"], {
-        what: "Custom event bus for business events.",
-        fit: ["Publisher emits events; subscribers process asynchronously.", "Designed for decoupling and fan-out."],
-        use: ["Notify downstream systems of business happenings.", "Integrate microservices without tight coupling."]
-      }),
-      mk("Change Data Capture", "CDC", ["faf"], {
-        what: "Real-time notifications for record changes.",
-        fit: ["Change stream consumed asynchronously.", "Optimized for data-change events rather than business events."],
-        use: ["Sync downstream databases/search indexes.", "Trigger external processes on create/update/delete/undelete."]
-      }),
-      mk("Streaming API", "STR", ["faf"], {
-        what: "Subscription-based event delivery over streaming channels.",
-        fit: ["Subscriber model aligns with fire & forget consumption.", "Transports platform events and CDC."],
-        use: ["Near-real-time integrations where clients maintain subscriptions."]
-      }),
-      mk("Workflow Outbound Message", "WOM", ["faf"], {
-        what: "Workflow-driven outbound notifications to endpoints.",
-        fit: ["Asynchronous notification pattern (business success handled externally)."],
-        use: ["Simple outbound integration when eventing is sufficient.", "Legacy-friendly outbound notifications."]
-      }),
+      {
+        name: "Platform Events",
+        abbr: "PE",
+        patterns: ["faf"],
+        detail: {
+          what: "Custom event bus for business events.",
+          fit: ["Publisher emits events; subscribers process asynchronously.", "Designed for decoupling and fan-out."],
+          use: ["Notify downstream systems of business happenings.", "Integrate microservices without tight coupling."]
+        }
+      },
+      {
+        name: "Change Data Capture",
+        abbr: "CDC",
+        patterns: ["faf"],
+        detail: {
+          what: "Real-time notifications for record changes.",
+          fit: ["Change stream consumed asynchronously.", "Optimized for data-change events rather than business events."],
+          use: ["Sync downstream databases/search indexes.", "Trigger external processes on create/update/delete/undelete."]
+        }
+      },
+      {
+        name: "Streaming API",
+        abbr: "STR",
+        patterns: ["faf"],
+        detail: {
+          what: "Subscription-based event delivery over streaming channels.",
+          fit: ["Subscriber model aligns with fire & forget consumption.", "Transports platform events and CDC."],
+          use: ["Near-real-time integrations where clients maintain subscriptions."]
+        }
+      },
+      {
+        name: "Workflow Outbound Message",
+        abbr: "WOM",
+        patterns: ["faf"],
+        detail: {
+          what: "Workflow-driven outbound notifications to endpoints.",
+          fit: ["Asynchronous notification pattern (business success handled externally)."],
+          use: ["Simple outbound integration when eventing is sufficient.", "Legacy-friendly outbound notifications."]
+        }
+      },
 
       // Batch
-      mk("Bulk API 2.0", "B2", ["batch"], {
-        what: "REST-based bulk load and bulk query operations.",
-        fit: ["Job-based lifecycle (submit, monitor, retrieve results).", "Throughput optimized over latency."],
-        use: ["Large migrations, nightly ETL, mass updates.", "When you must respect API limits via bulk mechanics."]
-      }),
-      mk("Customer 360 Data Manager Data Jobs API", "C360J", ["batch"], {
-        what: "Create and run Customer 360 Data Manager jobs via REST.",
-        fit: ["Job orchestration and batch execution.", "Async job controls and status polling."],
-        use: ["Batch harmonization/processing within Customer 360 data pipelines."]
-      }),
+      {
+        name: "Bulk API 2.0",
+        abbr: "B2",
+        patterns: ["batch"],
+        detail: {
+          what: "REST-based bulk load and bulk query operations.",
+          fit: ["Job-based lifecycle (submit, monitor, retrieve results).", "Throughput optimized over latency."],
+          use: ["Large migrations, nightly ETL, mass updates.", "When you must respect API limits via bulk mechanics."]
+        }
+      },
+      {
+        name: "Customer 360 Data Manager Data Jobs API",
+        abbr: "C360J",
+        patterns: ["batch"],
+        detail: {
+          what: "Create and run Customer 360 Data Manager jobs via REST.",
+          fit: ["Job orchestration and batch execution.", "Async job controls and status polling."],
+          use: ["Batch harmonization/processing within Customer 360 data pipelines."]
+        }
+      },
 
       // Remote Call In (some repeated across columns)
-      mk("Salesforce Knowledge Developer API", "KN", ["remote","req"], {
-        what: "Build knowledge base integrations via multiple platform APIs.",
-        fit: ["Commonly used by external systems calling into Salesforce to manage knowledge assets."],
-        use: ["Knowledge publishing workflows that originate outside Salesforce."]
-      }),
+      {
+        name: "Salesforce Knowledge Developer API",
+        abbr: "KN",
+        patterns: ["remote","req"],
+        detail: {
+          what: "Build knowledge base integrations via multiple platform APIs.",
+          fit: ["Commonly used by external systems calling into Salesforce to manage knowledge assets."],
+          use: ["Knowledge publishing workflows that originate outside Salesforce."]
+        }
+      },
 
       // Virtualization
-      mk("Salesforce Connect", "SC", ["virt"], {
-        what: "External objects and data access without copying data into Salesforce.",
-        fit: ["External data appears native; queries delegated outward."],
-        use: ["When data must remain in source of truth.", "When you accept latency/availability tradeoffs for freshness."]
-      }),
-      mk("OData Adapters", "OData", ["virt"], {
-        what: "OData adapters used by Salesforce Connect.",
-        fit: ["Standard protocol for external data virtualization."],
-        use: ["When exposing external data via OData endpoints to Salesforce Connect."]
-      }),
-      mk("Data Federation API", "DFA", ["virt"], {
-        what: "OData REST API for federated queries against queryable data models.",
-        fit: ["Federated query surface: query across data without centralizing it."],
-        use: ["When you need unified querying across multiple stores/models."]
-      }),
-      mk("Federated Search API", "FSA", ["virt"], {
-        what: "Connects federated search connectors to external systems.",
-        fit: ["Virtualized search over external sources rather than ingesting content."],
-        use: ["Enterprise search scenarios where indexing is external or constrained."]
-      }),
-      mk("Files Connect", "FC", ["virt"], {
-        what: "Access external files (e.g., Drive/SharePoint) inside Salesforce.",
-        fit: ["Content stays external; Salesforce provides in-context access."],
-        use: ["When file governance requires external storage but Salesforce needs visibility."]
-      }),
+      {
+        name: "Salesforce Connect",
+        abbr: "SC",
+        patterns: ["virt"],
+        detail: {
+          what: "External objects and data access without copying data into Salesforce.",
+          fit: ["External data appears native; queries delegated outward."],
+          use: ["When data must remain in source of truth.", "When you accept latency/availability tradeoffs for freshness."]
+        }
+      },
+      {
+        name: "OData Adapters",
+        abbr: "OData",
+        patterns: ["virt"],
+        detail: {
+          what: "OData adapters used by Salesforce Connect.",
+          fit: ["Standard protocol for external data virtualization."],
+          use: ["When exposing external data via OData endpoints to Salesforce Connect."]
+        }
+      },
+      {
+        name: "Data Federation API",
+        abbr: "DFA",
+        patterns: ["virt"],
+        detail: {
+          what: "OData REST API for federated queries against queryable data models.",
+          fit: ["Federated query surface: query across data without centralizing it."],
+          use: ["When you need unified querying across multiple stores/models."]
+        }
+      },
+      {
+        name: "Federated Search API",
+        abbr: "FSA",
+        patterns: ["virt"],
+        detail: {
+          what: "Connects federated search connectors to external systems.",
+          fit: ["Virtualized search over external sources rather than ingesting content."],
+          use: ["Enterprise search scenarios where indexing is external or constrained."]
+        }
+      },
+      {
+        name: "Files Connect",
+        abbr: "FC",
+        patterns: ["virt"],
+        detail: {
+          what: "Access external files (e.g., Drive/SharePoint) inside Salesforce.",
+          fit: ["Content stays external; Salesforce provides in-context access."],
+          use: ["When file governance requires external storage but Salesforce needs visibility."]
+        }
+      },
+      
+      // Request & Response
+      {
+        name: "Apex Callouts",
+        abbr: "CALL",
+        patterns: ["req"],
+        detail: {
+          what: "Outbound HTTP call capability from Apex.",
+          fit: ["Synchronous request/response initiated from Salesforce.", "Tightly coupled to Apex execution context."],
+          use: ["Calling external REST/SOAP services from triggers, flows, or async Apex.", "Server-side integrations requiring Salesforce-originated calls."]
+        }
+      },
+      {
+        name: "Metadata API",
+        abbr: "META",
+        patterns: ["req","remote","batch"],
+        detail: {
+          what: "API for managing Salesforce metadata programmatically.",
+          fit: ["Deployment-style operations with async execution.", "Org configuration as data."],
+          use: ["CI/CD pipelines.", "Automated org setup, packaging, and migrations."]
+        }
+      },
+      {
+        name: "Tooling API",
+        abbr: "TOOL",
+        patterns: ["req","remote"],
+        detail: {
+          what: "API for building custom development and admin tooling.",
+          fit: ["Low-level access to Apex, metadata, and tooling objects."],
+          use: ["Custom IDEs, linters, code analyzers.", "Advanced admin automation and inspection tools."]
+        }
+      },
+
+      // Commerce APIs
+      {
+        name: "B2B Commerce API",
+        abbr: "B2BC",
+        patterns: ["req"],
+        detail: {
+          what: "APIs for building B2B commerce experiences.",
+          fit: ["Synchronous commerce operations.", "Catalog, pricing, and buyer workflows."],
+          use: ["Custom storefronts.", "ERP or partner commerce integrations."]
+        }
+      },
+      {
+        name: "B2C Commerce API",
+        abbr: "B2CC",
+        patterns: ["req"],
+        detail: {
+          what: "Headless commerce APIs for B2C experiences.",
+          fit: ["High-throughput synchronous calls.", "Decoupled frontend architectures."],
+          use: ["Mobile apps and headless storefronts.", "Custom checkout and catalog flows."]
+        }
+      },
+      {
+        name: "B2C Commerce Einstein API",
+        abbr: "E-COM",
+        patterns: ["req"],
+        detail: {
+          what: "ML-driven personalization APIs for commerce.",
+          fit: ["Real-time recommendation and personalization calls."],
+          use: ["Personalized search, ranking, and recommendations."]
+        }
+      },
+
+      // Customer 360 / CDP
+      {
+        name: "Salesforce CDP API",
+        abbr: "CDP",
+        patterns: ["req","batch"],
+        detail: {
+          what: "APIs for Customer Data Platform operations.",
+          fit: ["Profile, ingestion, and segmentation operations."],
+          use: ["Activating unified customer data.", "Feeding downstream personalization systems."]
+        }
+      },
+      {
+        name: "Customer 360",
+        abbr: "C360",
+        patterns: ["virt","batch"],
+        detail: {
+          what: "Unified data layer across Salesforce clouds.",
+          fit: ["Data harmonization and identity resolution."],
+          use: ["Cross-cloud analytics and personalization."]
+        }
+      },
+
+      // Marketing APIs
+      {
+        name: "Marketing Cloud API",
+        abbr: "MC",
+        patterns: ["req","batch"],
+        detail: {
+          what: "APIs for Salesforce Marketing Cloud.",
+          fit: ["Campaign, journey, and messaging operations."],
+          use: ["Cross-channel marketing automation.", "External campaign orchestration."]
+        }
+      },
+      {
+        name: "Marketing Cloud Einstein Content Selection API",
+        abbr: "MC-EIN",
+        patterns: ["req"],
+        detail: {
+          what: "AI-driven content selection for Marketing Cloud.",
+          fit: ["Low-latency personalization calls."],
+          use: ["Dynamic content selection in campaigns."]
+        }
+      },
+      {
+        name: "Pardot / Account Engagement API",
+        abbr: "AE",
+        patterns: ["req","batch"],
+        detail: {
+          what: "B2B marketing automation APIs.",
+          fit: ["Lead, prospect, and engagement data access."],
+          use: ["Sales-marketing data sync.", "External lead enrichment."]
+        }
+      },
+      {
+        name: "Social Studio API",
+        abbr: "SOC",
+        patterns: ["req","batch"],
+        detail: {
+          what: "APIs for social media management and analytics.",
+          fit: ["Content and engagement data retrieval."],
+          use: ["Social listening and reporting integrations."]
+        }
+      },
+
+      // Einstein AI
+      {
+        name: "Einstein Platform Services API",
+        abbr: "EIN",
+        patterns: ["req"],
+        detail: {
+          what: "Custom ML model inference APIs.",
+          fit: ["Real-time prediction calls."],
+          use: ["Embedding AI predictions into CRM workflows."]
+        }
+      },
+      {
+        name: "Einstein Bot API",
+        abbr: "BOT",
+        patterns: ["req","faf"],
+        detail: {
+          what: "APIs for building and integrating Einstein Bots.",
+          fit: ["Conversational request/response with async events."],
+          use: ["Chat and messaging channel integrations."]
+        }
+      },
+
+      // Analytics
+      {
+        name: "Tableau CRM REST API",
+        abbr: "TCRM",
+        patterns: ["req"],
+        detail: {
+          what: "API for Tableau CRM (Einstein Analytics).",
+          fit: ["Querying datasets and dashboards."],
+          use: ["Embedding analytics in apps and portals."]
+        }
+      },
+
+      // Service & Knowledge
+      {
+        name: "Omni-Channel API",
+        abbr: "OMNI",
+        patterns: ["req","faf"],
+        detail: {
+          what: "APIs for Omni-Channel routing and work assignment.",
+          fit: ["Real-time routing with async updates."],
+          use: ["Custom service consoles.", "Advanced routing logic integrations."]
+        }
+      },
+
+      // Location
+      {
+        name: "Salesforce Maps REST API",
+        abbr: "MAPS",
+        patterns: ["req"],
+        detail: {
+          what: "Location intelligence and visualization APIs.",
+          fit: ["Geospatial queries and route optimization."],
+          use: ["Territory planning.", "Field service optimization."]
+        }
+      },
+
+      // Collaboration
+      {
+        name: "Quip Automation API",
+        abbr: "QUIP-A",
+        patterns: ["req","faf"],
+        detail: {
+          what: "Automation and bot APIs for Quip.",
+          fit: ["Document-centric workflows with async triggers."],
+          use: ["Collaborative workflow automation."]
+        }
+      },
+      {
+        name: "Quip Live Apps API",
+        abbr: "QUIP-L",
+        patterns: ["req"],
+        detail: {
+          what: "UI extension APIs for Quip documents.",
+          fit: ["Interactive embedded applications."],
+          use: ["Custom collaborative experiences."]
+        }
+      },
+
+      // Application Integration
+      {
+        name: "Canvas / Connected App",
+        abbr: "CAN",
+        patterns: ["req"],
+        detail: {
+          what: "Framework for embedding external apps in Salesforce UI.",
+          fit: ["OAuth-based trust with iframe embedding."],
+          use: ["Integrating existing web apps into Salesforce."]
+        }
+      },
+      {
+        name: "Lightning Out",
+        abbr: "LO",
+        patterns: ["req"],
+        detail: {
+          what: "Embed Lightning components in external apps.",
+          fit: ["UI reuse outside Salesforce runtime."],
+          use: ["Sharing Salesforce UI components externally."]
+        }
+      }
     ];
+
+    const CARDS = CARD_DEFS.map(def => mk(def.name, def.abbr, def.patterns, def.detail));
 
     function mk(name, abbr, patterns, detail){
       return {
@@ -509,12 +820,6 @@
 
       const stack = document.createElement("div");
       stack.className = "stack";
-      const isRequestColumn = p.key === "req";
-      const isVirtualColumn = p.key === "virt";
-      const columnCount = (isRequestColumn || isVirtualColumn) ? 2 : 1;
-      const maxWidth = (isRequestColumn || isVirtualColumn) ? "100%" : "160px";
-      stack.style.setProperty("--card-columns", columnCount);
-      stack.style.setProperty("--stack-max-width", maxWidth);
       el.appendChild(stack);
 
       grid.appendChild(el);
@@ -558,12 +863,7 @@
       name.className = "name";
       name.textContent = item.name;
 
-      const abbr = document.createElement("div");
-      abbr.className = "abbr";
-      abbr.textContent = item.abbr;
-
       row.appendChild(name);
-      row.appendChild(abbr);
       card.appendChild(row);
 
       const desc = document.createElement("div");
