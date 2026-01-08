@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Salesforce Integration Patterns - Mini Periodic Table</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#111a33;
+      --card:#151f3f;
+      --card2:#101a36;
+      --text:#e8ecff;
+      --muted:#aeb7e6;
+      --border:rgba(255,255,255,.12);
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius:14px;
+      --gap:14px;
+
+      /* Pattern accent colors */
+      --req:#5dd6ff;
+      --faf:#ffcf5d;
+      --batch:#7dff9a;
+      --remote:#c28bff;
+      --virt:#ff6fae;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+      background: radial-gradient(1200px 700px at 30% 10%, rgba(93,214,255,.15), transparent 60%),
+                  radial-gradient(900px 600px at 80% 30%, rgba(255,111,174,.10), transparent 60%),
+                  radial-gradient(900px 600px at 40% 90%, rgba(125,255,154,.10), transparent 60%),
+                  var(--bg);
+      color:var(--text);
+      padding:24px;
+    }
+
+    header{
+      display:flex;
+      gap:16px;
+      align-items:flex-start;
+      justify-content:space-between;
+      margin-bottom:18px;
+    }
+
+    h1{
+      font-size:18px;
+      margin:0 0 6px 0;
+      font-weight:700;
+      letter-spacing:.2px;
+    }
+    .sub{
+      margin:0;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.4;
+      max-width: 70ch;
+    }
+
+    .legend{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px 10px;
+      align-items:center;
+      justify-content:flex-end;
+      margin-top:2px;
+    }
+    .pill{
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      padding:6px 10px;
+      background: rgba(255,255,255,.06);
+      border:1px solid var(--border);
+      border-radius:999px;
+      font-size:12px;
+      color:var(--muted);
+      user-select:none;
+      white-space:nowrap;
+    }
+    .dot{
+      width:10px; height:10px;
+      border-radius:50%;
+      background: var(--muted);
+      box-shadow: 0 0 0 3px rgba(255,255,255,.06);
+    }
+
+    .layout{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: var(--gap);
+    }
+
+    .table{
+      background: rgba(255,255,255,.04);
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+
+    .tableHeader{
+      display:grid;
+      grid-template-columns: repeat(5, minmax(190px, 1fr));
+      gap:0;
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      border-bottom:1px solid var(--border);
+    }
+    .colHead{
+      padding:12px 12px;
+      font-weight:700;
+      font-size:12px;
+      letter-spacing:.5px;
+      text-transform:uppercase;
+      color:var(--muted);
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .colHead .dot{ box-shadow:none; }
+
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(5, minmax(190px, 1fr));
+      gap:0;
+    }
+
+    .cell{
+      padding:12px;
+      border-right:1px solid var(--border);
+      border-bottom:1px solid var(--border);
+      min-height: 160px;
+      background: rgba(0,0,0,.08);
+    }
+    .cell:nth-child(5n){ border-right:none; } /* last col */
+
+    .stack{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .card{
+      position:relative;
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border:1px solid var(--border);
+      border-radius: 12px;
+      padding:10px 10px 10px 12px;
+      cursor:pointer;
+      transition: transform .12s ease, border-color .12s ease, background .12s ease;
+      outline:none;
+    }
+    .card:hover{
+      transform: translateY(-2px);
+      border-color: rgba(255,255,255,.22);
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+    }
+
+    .bar{
+      position:absolute;
+      left:0; top:0; bottom:0;
+      width:4px;
+      border-top-left-radius:12px;
+      border-bottom-left-radius:12px;
+      background: var(--muted);
+      opacity:.95;
+    }
+
+    .row{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .name{
+      font-weight:700;
+      font-size:13px;
+      line-height:1.25;
+    }
+    .abbr{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:12px;
+      color:rgba(255,255,255,.85);
+      opacity:.9;
+      padding:2px 6px;
+      border-radius:999px;
+      background: rgba(0,0,0,.18);
+      border:1px solid rgba(255,255,255,.12);
+      user-select:none;
+    }
+    .desc{
+      margin-top:6px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.35;
+    }
+
+    .tags{
+      margin-top:8px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+    }
+    .tag{
+      font-size:11px;
+      color:rgba(255,255,255,.78);
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.16);
+      padding:3px 6px;
+      border-radius:999px;
+      user-select:none;
+    }
+
+    /* Modal */
+    dialog{
+      width:min(900px, calc(100% - 24px));
+      border:none;
+      padding:0;
+      background: transparent;
+    }
+    dialog::backdrop{
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(4px);
+    }
+    .modal{
+      background: rgba(17,26,51,.96);
+      border:1px solid rgba(255,255,255,.14);
+      border-radius: 18px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.55);
+      overflow:hidden;
+    }
+    .modalTop{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:16px;
+      padding:16px 16px 12px 16px;
+      border-bottom:1px solid rgba(255,255,255,.12);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+    }
+    .modalTitle{
+      margin:0;
+      font-size:16px;
+      font-weight:800;
+      line-height:1.2;
+    }
+    .modalMeta{
+      margin:6px 0 0 0;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.45;
+    }
+    .closeBtn{
+      appearance:none;
+      border:1px solid rgba(255,255,255,.16);
+      background: rgba(0,0,0,.2);
+      color:rgba(255,255,255,.9);
+      border-radius: 12px;
+      padding:8px 10px;
+      cursor:pointer;
+      font-size:12px;
+    }
+    .closeBtn:hover{ border-color: rgba(255,255,255,.26); }
+
+    .modalBody{
+      padding:14px 16px 16px 16px;
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:12px;
+    }
+    .section{
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      border-radius: 14px;
+      padding:12px;
+    }
+    .section h3{
+      margin:0 0 8px 0;
+      font-size:12px;
+      letter-spacing:.4px;
+      text-transform:uppercase;
+      color:rgba(255,255,255,.85);
+    }
+    .section p{
+      margin:0;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.5;
+    }
+    .list{
+      margin:0;
+      padding-left:18px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.55;
+    }
+
+    /* Responsive */
+    @media (max-width: 1020px){
+      .tableHeader, .grid{ grid-template-columns: repeat(2, minmax(190px, 1fr)); }
+      .cell:nth-child(2n){ border-right:none; }
+      .cell:nth-child(5n){ border-right:1px solid var(--border); } /* neutralize */
+    }
+    @media (max-width: 560px){
+      .tableHeader, .grid{ grid-template-columns: 1fr; }
+      .cell{ border-right:none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Mini Periodic Table - Salesforce Integration Patterns</h1>
+      <p class="sub">
+        Click any card for a detailed view. Hover shows a quick tip. Cards can repeat across patterns.
+      </p>
+    </div>
+    <div class="legend" aria-label="Legend">
+      <span class="pill"><span class="dot" style="background:var(--req)"></span>Request & Response</span>
+      <span class="pill"><span class="dot" style="background:var(--faf)"></span>Fire & Forget</span>
+      <span class="pill"><span class="dot" style="background:var(--batch)"></span>Batch Integration</span>
+      <span class="pill"><span class="dot" style="background:var(--remote)"></span>Remote Call In</span>
+      <span class="pill"><span class="dot" style="background:var(--virt)"></span>Virtualization</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="table" aria-label="Periodic table grid">
+      <div class="tableHeader">
+        <div class="colHead"><span class="dot" style="background:var(--req)"></span>Request & Response</div>
+        <div class="colHead"><span class="dot" style="background:var(--faf)"></span>Fire & Forget</div>
+        <div class="colHead"><span class="dot" style="background:var(--batch)"></span>Batch Integration</div>
+        <div class="colHead"><span class="dot" style="background:var(--remote)"></span>Remote Call In</div>
+        <div class="colHead"><span class="dot" style="background:var(--virt)"></span>Virtualization</div>
+      </div>
+
+      <div class="grid" id="grid"></div>
+    </section>
+  </main>
+
+  <dialog id="detailDialog" aria-label="Card details">
+    <div class="modal">
+      <div class="modalTop">
+        <div>
+          <h2 class="modalTitle" id="modalTitle">Title</h2>
+          <p class="modalMeta" id="modalMeta">Meta</p>
+        </div>
+        <button class="closeBtn" id="closeBtn" type="button">Close</button>
+      </div>
+      <div class="modalBody">
+        <div class="section">
+          <h3>What it is</h3>
+          <p id="modalWhat"></p>
+        </div>
+        <div class="section">
+          <h3>How it fits this pattern</h3>
+          <ul class="list" id="modalFit"></ul>
+        </div>
+        <div class="section">
+          <h3>Typical usage context</h3>
+          <ul class="list" id="modalUse"></ul>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    // Pattern definitions (for color + layout)
+    const PATTERNS = [
+      { key: "req",   label: "Request & Response", colorVar: "--req" },
+      { key: "faf",   label: "Fire & Forget",      colorVar: "--faf" },
+      { key: "batch", label: "Batch Integration",  colorVar: "--batch" },
+      { key: "remote",label: "Remote Call In",     colorVar: "--remote" },
+      { key: "virt",  label: "Virtualization",     colorVar: "--virt" },
+    ];
+
+    // Cards can repeat across patterns: include multiple entries with different pattern keys.
+    // Keep these concise; you can expand later.
+    const CARDS = [
+      // Request & Response
+      mk("Lightning Platform REST API", "REST", ["req","remote"], {
+        what: "Salesforce core REST API for platform resources.",
+        fit: ["Synchronous request/response over HTTP.", "Often used by web/mobile/backends to CRUD and query data."],
+        use: ["When caller needs immediate result.", "When you want broad ecosystem support and simple contracts."]
+      }),
+      mk("Lightning Platform SOAP API", "SOAP", ["req","remote"], {
+        what: "SOAP-based API for platform resources.",
+        fit: ["Strong schema and enterprise tooling fit.", "Synchronous call model (with async patterns layered on top)."],
+        use: ["When WSDL-driven clients and strict schemas are preferred.", "When legacy enterprise integration tooling expects SOAP."]
+      }),
+      mk("Apex Web Services", "AWS", ["req","remote"], {
+        what: "Expose Apex classes as REST or SOAP services.",
+        fit: ["External systems call into Salesforce-hosted logic.", "Still request/response at transport level."],
+        use: ["When you must enforce org-side business rules on inbound calls.", "When you need a custom contract beyond standard objects."]
+      }),
+      mk("User Interface API", "UI", ["req"], {
+        what: "API for building Salesforce UI experiences in custom apps.",
+        fit: ["Synchronous retrieval of UI metadata, layouts, and data needed to render screens."],
+        use: ["When you want Salesforce-consistent UI behavior outside standard UI.", "Mobile or custom web apps needing layout-aware rendering."]
+      }),
+      mk("Connect REST API", "C-REST", ["req"], {
+        what: "API surface including Chatter and collaboration constructs.",
+        fit: ["Interactive, synchronous operations for collaboration features."],
+        use: ["Intranet/mobile integrations that need feeds, comments, users, groups."]
+      }),
+      mk("Reports and Dashboards REST API", "RPT", ["req"], {
+        what: "Programmatic access to reports and dashboard results.",
+        fit: ["Client requests a report result set; response returned."],
+        use: ["Embedding analytics in portals/apps.", "Automating exports and scheduled retrieval patterns."]
+      }),
+      mk("Platform Encryption REST API", "ENC", ["req"], {
+        what: "Manage tenant secrets outside of Salesforce.",
+        fit: ["Direct calls to manage encryption secrets and related operations."],
+        use: ["Security operations workflows.", "Compliance-driven key management integrations."]
+      }),
+
+      // Fire & Forget
+      mk("Platform Events", "PE", ["faf"], {
+        what: "Custom event bus for business events.",
+        fit: ["Publisher emits events; subscribers process asynchronously.", "Designed for decoupling and fan-out."],
+        use: ["Notify downstream systems of business happenings.", "Integrate microservices without tight coupling."]
+      }),
+      mk("Change Data Capture", "CDC", ["faf"], {
+        what: "Real-time notifications for record changes.",
+        fit: ["Change stream consumed asynchronously.", "Optimized for data-change events rather than business events."],
+        use: ["Sync downstream databases/search indexes.", "Trigger external processes on create/update/delete/undelete."]
+      }),
+      mk("Streaming API", "STR", ["faf"], {
+        what: "Subscription-based event delivery over streaming channels.",
+        fit: ["Subscriber model aligns with fire & forget consumption.", "Transports platform events and CDC."],
+        use: ["Near-real-time integrations where clients maintain subscriptions."]
+      }),
+      mk("Workflow Outbound Message", "WOM", ["faf"], {
+        what: "Workflow-driven outbound notifications to endpoints.",
+        fit: ["Asynchronous notification pattern (business success handled externally)."],
+        use: ["Simple outbound integration when eventing is sufficient.", "Legacy-friendly outbound notifications."]
+      }),
+
+      // Batch
+      mk("Bulk API 2.0", "B2", ["batch"], {
+        what: "REST-based bulk load and bulk query operations.",
+        fit: ["Job-based lifecycle (submit, monitor, retrieve results).", "Throughput optimized over latency."],
+        use: ["Large migrations, nightly ETL, mass updates.", "When you must respect API limits via bulk mechanics."]
+      }),
+      mk("Customer 360 Data Manager Data Jobs API", "C360J", ["batch"], {
+        what: "Create and run Customer 360 Data Manager jobs via REST.",
+        fit: ["Job orchestration and batch execution.", "Async job controls and status polling."],
+        use: ["Batch harmonization/processing within Customer 360 data pipelines."]
+      }),
+
+      // Remote Call In (some repeated already via tags)
+      mk("Salesforce Knowledge Developer API", "KN", ["remote","req"], {
+        what: "Build knowledge base integrations via multiple platform APIs.",
+        fit: ["Commonly used by external systems calling into Salesforce to manage knowledge assets."],
+        use: ["Knowledge publishing workflows that originate outside Salesforce."]
+      }),
+
+      // Virtualization
+      mk("Salesforce Connect", "SC", ["virt"], {
+        what: "External objects and data access without copying data into Salesforce.",
+        fit: ["External data appears native; queries delegated outward."],
+        use: ["When data must remain in source of truth.", "When you accept latency/availability tradeoffs for freshness."]
+      }),
+      mk("OData Adapters", "OData", ["virt"], {
+        what: "OData adapters used by Salesforce Connect.",
+        fit: ["Standard protocol for external data virtualization."],
+        use: ["When exposing external data via OData endpoints to Salesforce Connect."]
+      }),
+      mk("Data Federation API", "DFA", ["virt"], {
+        what: "OData REST API for federated queries against queryable data models.",
+        fit: ["Federated query surface: query across data without centralizing it."],
+        use: ["When you need unified querying across multiple stores/models."]
+      }),
+      mk("Federated Search API", "FSA", ["virt"], {
+        what: "Connects federated search connectors to external systems.",
+        fit: ["Virtualized search over external sources rather than ingesting content."],
+        use: ["Enterprise search scenarios where indexing is external or constrained."]
+      }),
+      mk("Files Connect", "FC", ["virt"], {
+        what: "Access external files (e.g., Drive/SharePoint) inside Salesforce.",
+        fit: ["Content stays external; Salesforce provides in-context access."],
+        use: ["When file governance requires external storage but Salesforce needs visibility."]
+      }),
+    ];
+
+    function mk(name, abbr, patterns, detail){
+      return {
+        id: (name + "|" + patterns.join(",")).toLowerCase().replace(/[^a-z0-9|,]+/g,"-"),
+        name, abbr, patterns,
+        tip: detail.fit?.[0] || "Click for details",
+        detail
+      };
+    }
+
+    // Build 5 columns. Each cell contains cards whose patterns include that column key.
+    const grid = document.getElementById("grid");
+    const cells = PATTERNS.map(p => {
+      const el = document.createElement("div");
+      el.className = "cell";
+      el.dataset.pattern = p.key;
+
+      const stack = document.createElement("div");
+      stack.className = "stack";
+      el.appendChild(stack);
+
+      grid.appendChild(el);
+      return { pattern: p, cell: el, stack };
+    });
+
+    const byPattern = new Map(PATTERNS.map(p => [p.key, []]));
+    for(const c of CARDS){
+      for(const pk of c.patterns){
+        if(byPattern.has(pk)) byPattern.get(pk).push(c);
+      }
+    }
+
+    // Render cards into each column cell
+    for(const {pattern, stack} of cells){
+      const items = byPattern.get(pattern.key) || [];
+      // Sort stable by name for readability
+      items.sort((a,b) => a.name.localeCompare(b.name));
+      for(const item of items){
+        stack.appendChild(renderCard(item, pattern));
+      }
+    }
+
+    function renderCard(item, pattern){
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "card";
+      card.setAttribute("title", item.tip);
+      card.dataset.cardId = item.id;
+      card.dataset.pattern = pattern.key;
+
+      const bar = document.createElement("div");
+      bar.className = "bar";
+      bar.style.background = `var(${pattern.colorVar})`;
+      card.appendChild(bar);
+
+      const row = document.createElement("div");
+      row.className = "row";
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = item.name;
+
+      const abbr = document.createElement("div");
+      abbr.className = "abbr";
+      abbr.textContent = item.abbr;
+
+      row.appendChild(name);
+      row.appendChild(abbr);
+      card.appendChild(row);
+
+      const desc = document.createElement("div");
+      desc.className = "desc";
+      desc.textContent = item.detail.what;
+      card.appendChild(desc);
+
+      const tags = document.createElement("div");
+      tags.className = "tags";
+      for(const pk of item.patterns){
+        const p = PATTERNS.find(x => x.key === pk);
+        if(!p) continue;
+        const t = document.createElement("span");
+        t.className = "tag";
+        t.textContent = p.label;
+        tags.appendChild(t);
+      }
+      card.appendChild(tags);
+
+      card.addEventListener("click", () => openModal(item, pattern));
+      return card;
+    }
+
+    // Modal wiring
+    const dlg = document.getElementById("detailDialog");
+    const modalTitle = document.getElementById("modalTitle");
+    const modalMeta = document.getElementById("modalMeta");
+    const modalWhat = document.getElementById("modalWhat");
+    const modalFit = document.getElementById("modalFit");
+    const modalUse = document.getElementById("modalUse");
+    const closeBtn = document.getElementById("closeBtn");
+
+    function openModal(item, pattern){
+      modalTitle.textContent = item.name;
+      modalMeta.textContent = `Opened from pattern: ${pattern.label} | Card key: ${item.abbr}`;
+      modalWhat.textContent = item.detail.what;
+
+      fillList(modalFit, item.detail.fit || []);
+      fillList(modalUse, item.detail.use || []);
+
+      if(typeof dlg.showModal === "function") dlg.showModal();
+      else alert(item.name + "\n\n" + item.detail.what);
+    }
+
+    function fillList(el, lines){
+      el.innerHTML = "";
+      for(const line of lines){
+        const li = document.createElement("li");
+        li.textContent = line;
+        el.appendChild(li);
+      }
+      if(lines.length === 0){
+        const li = document.createElement("li");
+        li.textContent = "No notes yet.";
+        el.appendChild(li);
+      }
+    }
+
+    closeBtn.addEventListener("click", () => dlg.close());
+    dlg.addEventListener("click", (e) => {
+      // close when clicking backdrop
+      const rect = dlg.getBoundingClientRect();
+      const inDialog = e.clientX >= rect.left && e.clientX <= rect.right &&
+                       e.clientY >= rect.top && e.clientY <= rect.bottom;
+      if(!inDialog) dlg.close();
+    });
+
+    // 😼 Quick critical-thinking hooks (optional): uncomment to see pattern overlaps in console
+    // console.table(CARDS.map(c => ({ name: c.name, patterns: c.patterns.join(", ") })));
+  </script>
+</body>
+</html>
