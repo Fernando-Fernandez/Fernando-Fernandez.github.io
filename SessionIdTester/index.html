@@ -1,0 +1,235 @@
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Salesforce REST: Current User + First 5 Cases</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; line-height: 1.35; }
+      code, pre { background: #f6f8fa; padding: 2px 6px; border-radius: 6px; }
+      pre { padding: 12px; overflow: auto; }
+      .row { display: flex; gap: 24px; flex-wrap: wrap; }
+      .card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; min-width: 320px; flex: 1; }
+      .muted { color: #6b7280; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border-bottom: 1px solid #e5e7eb; padding: 8px 6px; text-align: left; vertical-align: top; }
+      th { font-weight: 600; }
+      .ok { color: #065f46; }
+      .err { color: #991b1b; white-space: pre-wrap; }
+      .kv { display: grid; grid-template-columns: 160px 1fr; gap: 6px 10px; }
+      .kv div:nth-child(odd) { color: #374151; }
+      .kv div:nth-child(even) { color: #111827; word-break: break-word; }
+      .pill { display: inline-block; padding: 2px 8px; border: 1px solid #e5e7eb; border-radius: 999px; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <h2>Salesforce REST Demo</h2>
+    <div class="muted">
+      Requires URL params:
+      <ul>
+        <li><code>sessionId</code> (required)</li>
+        <li><code>instanceUrl</code> (optional) e.g. <code>https://mydomain.my.salesforce.com</code></li>
+        <li><code>apiVersion</code> (optional) default <code>60.0</code></li>
+      </ul>
+      Example:
+      <pre><code>yourpage.html?sessionId=00D...!AQ0...&instanceUrl=https%3A%2F%2Fmydomain.my.salesforce.com</code></pre>
+      <div class="muted">
+        Note: putting a sessionId in a URL is risky (it can leak via browser history, logs, referrers). Prefer short-lived tokens and avoid sharing links.
+      </div>
+    </div>
+
+    <hr />
+
+    <div id="status" class="pill muted">Idle</div>
+    <div id="error" class="err" style="margin-top:12px;"></div>
+
+    <div class="row" style="margin-top:16px;">
+      <div class="card">
+        <h3 style="margin-top:0;">Current user</h3>
+        <div id="userCard" class="muted">Not loaded.</div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0;">First 5 cases (newest first)</h3>
+        <div id="casesCard" class="muted">Not loaded.</div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        const $status = document.getElementById("status");
+        const $error = document.getElementById("error");
+        const $userCard = document.getElementById("userCard");
+        const $casesCard = document.getElementById("casesCard");
+
+        function setStatus(text, isOk) {
+          $status.textContent = text;
+          $status.className = "pill " + (isOk ? "ok" : "muted");
+        }
+
+        function showError(err) {
+          const msg = (err && err.stack) ? err.stack : String(err);
+          $error.textContent = msg;
+          setStatus("Error", false);
+        }
+
+        function escapeHtml(s) {
+          return String(s)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#39;");
+        }
+
+        function getParam(name) {
+          return new URLSearchParams(window.location.search).get(name);
+        }
+
+        const sessionId = getParam("sessionId");
+        const instanceUrlParam = getParam("instanceUrl");
+        const apiVersion = getParam("apiVersion") || "60.0";
+
+        // If instanceUrl is not provided, default to current origin (useful if hosted on the SF domain itself).
+        const instanceUrl = instanceUrlParam || window.location.origin;
+
+        if (!sessionId) {
+          setStatus("Missing sessionId", false);
+          $error.textContent =
+            "Provide ?sessionId=... (and usually &instanceUrl=https://yourDomain.my.salesforce.com).";
+          return;
+        }
+
+        // Core REST helper
+        async function sfFetch(path, options) {
+          const url = instanceUrl.replace(/\/+$/, "") + path;
+          const res = await fetch(url, {
+            method: (options && options.method) || "GET",
+            headers: Object.assign(
+              {
+                "Authorization": "Bearer " + sessionId,
+                "Content-Type": "application/json"
+              },
+              (options && options.headers) || {}
+            ),
+            body: (options && options.body) ? JSON.stringify(options.body) : undefined
+          });
+
+          const text = await res.text();
+          let data;
+          try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+
+          if (!res.ok) {
+            const detail = (data && data[0] && data[0].message) ? data[0].message : text;
+            throw new Error("HTTP " + res.status + " " + res.statusText + " - " + detail);
+          }
+          return data;
+        }
+
+        async function load() {
+          setStatus("Loading...", false);
+          $error.textContent = "";
+
+          // 1) Identify current user
+          // userinfo returns user_id and org_id and some basics
+          // Endpoint: /services/oauth2/userinfo
+          const userInfo = await sfFetch("/services/oauth2/userinfo");
+
+          // 2) Load richer user details from User sObject
+          // Use REST sObject get with fields query param
+          const userId = userInfo.user_id;
+          const user = await sfFetch(
+            "/services/data/v" + apiVersion + "/sobjects/User/" + encodeURIComponent(userId) +
+            "?fields=Id,Name,Username,Email,Profile.Name,UserRole.Name,TimeZoneSidKey,LocaleSidKey,LanguageLocaleKey"
+          );
+
+          // 3) Query first 5 cases
+          const soql =
+            "SELECT Id, CaseNumber, Subject, Status, Priority, CreatedDate " +
+            "FROM Case ORDER BY CreatedDate DESC LIMIT 5";
+          const casesResult = await sfFetch(
+            "/services/data/v" + apiVersion + "/query/?q=" + encodeURIComponent(soql)
+          );
+
+          renderUser(userInfo, user);
+          renderCases(casesResult);
+
+          setStatus("Loaded", true);
+        }
+
+        function renderUser(userInfo, user) {
+          const rows = [
+            ["Name", user.Name],
+            ["Id", user.Id],
+            ["Username", user.Username],
+            ["Email", user.Email],
+            ["Profile", user.Profile && user.Profile.Name],
+            ["Role", user.UserRole && user.UserRole.Name],
+            ["Locale", user.LocaleSidKey],
+            ["Language", user.LanguageLocaleKey],
+            ["Time zone", user.TimeZoneSidKey],
+            ["Org Id", userInfo.organization_id],
+            ["Instance", instanceUrl],
+            ["API version", apiVersion]
+          ];
+
+          $userCard.innerHTML =
+            '<div class="kv">' +
+            rows
+              .map(([k, v]) => {
+                const val = (v === null || v === undefined || v === "") ? "-" : v;
+                return "<div>" + escapeHtml(k) + "</div><div>" + escapeHtml(val) + "</div>";
+              })
+              .join("") +
+            "</div>";
+        }
+
+        function renderCases(casesResult) {
+          const records = (casesResult && casesResult.records) ? casesResult.records : [];
+          if (!records.length) {
+            $casesCard.textContent = "No cases returned.";
+            return;
+          }
+
+          const header = `
+            <table>
+              <thead>
+                <tr>
+                  <th>CaseNumber</th>
+                  <th>Subject</th>
+                  <th>Status</th>
+                  <th>Priority</th>
+                  <th>CreatedDate</th>
+                  <th>Id</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          const body = records
+            .map(r => `
+              <tr>
+                <td>${escapeHtml(r.CaseNumber || "-")}</td>
+                <td>${escapeHtml(r.Subject || "-")}</td>
+                <td>${escapeHtml(r.Status || "-")}</td>
+                <td>${escapeHtml(r.Priority || "-")}</td>
+                <td>${escapeHtml(r.CreatedDate || "-")}</td>
+                <td><code>${escapeHtml(r.Id || "-")}</code></td>
+              </tr>
+            `)
+            .join("");
+
+          const footer = "</tbody></table>";
+          $casesCard.innerHTML = header + body + footer;
+        }
+
+        // If this is hosted off-domain, Salesforce CORS must allow the page origin.
+        // If you see CORS errors, add your site's origin under:
+        // Setup -> Security -> CORS -> Allowed Origins
+        load().catch(showError);
+      })();
+    </script>
+
+    <hr />
+  </body>
+</html>
