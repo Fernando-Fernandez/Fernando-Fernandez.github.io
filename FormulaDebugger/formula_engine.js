@@ -28,6 +28,7 @@ export default class FormulaEngine {
         case 'Function':
           if ((node.name || '').toUpperCase() === 'NOW') variables.add('NOW()');
           if ((node.name || '').toUpperCase() === 'TODAY') variables.add('TODAY()');
+          if ((node.name || '').toUpperCase() === 'TIMENOW') variables.add('TIMENOW()');
           (node.arguments || []).forEach(traverse);
           break;
         case OPERATOR_TYPE:
@@ -229,7 +230,16 @@ export default class FormulaEngine {
               if (argTypes.length >= 3) return (node.resultType = this.unifyTypes(argTypes[1], argTypes[2]));
               node.resultType = this.RESULT_TYPE.Unknown; return node.resultType;
             case 'CONTAINS': node.resultType = this.RESULT_TYPE.Boolean; return node.resultType;
+            case 'BEGINS': node.resultType = this.RESULT_TYPE.Boolean; return node.resultType;
             case 'FIND':
+            case 'ABS':
+            case 'EXP':
+            case 'LN':
+            case 'LOG':
+            case 'SQRT':
+            case 'ROUND':
+            case 'MCEILING':
+            case 'MFLOOR':
             case 'FLOOR':
             case 'MOD':
             case 'MONTH':
@@ -238,6 +248,7 @@ export default class FormulaEngine {
             case 'HOUR':
             case 'MINUTE':
             case 'SECOND':
+            case 'MILLISECOND':
             case 'CEILING': node.resultType = this.RESULT_TYPE.Number; return node.resultType;
             case 'MIN':
             case 'MAX': {
@@ -252,12 +263,24 @@ export default class FormulaEngine {
             case 'LEFT':
             case 'RIGHT':
             case 'TRIM':
+            case 'LOWER':
+            case 'UPPER':
+            case 'REVERSE':
             case 'TEXT':
             case 'LPAD':
             case 'RPAD':
             case 'SUBSTITUTE':
               node.resultType = this.RESULT_TYPE.Text; return node.resultType;
             case 'LEN': node.resultType = this.RESULT_TYPE.Number; return node.resultType;
+            case 'BLANKVALUE':
+            case 'NULLVALUE': {
+              if (argTypes.length >= 2) {
+                node.resultType = this.unifyTypes(argTypes[0], argTypes[1]);
+                return node.resultType;
+              }
+              node.resultType = argTypes[0] || this.RESULT_TYPE.Unknown;
+              return node.resultType;
+            }
             case 'VALUE': node.resultType = this.RESULT_TYPE.Number; return node.resultType;
             case 'CASE':
               if (argTypes.length >= 3) {
@@ -271,8 +294,10 @@ export default class FormulaEngine {
             case 'OR':
             case 'NOT':
             case 'ISPICKVAL':
-            case 'ISBLANK': node.resultType = this.RESULT_TYPE.Boolean; return node.resultType;
+            case 'ISBLANK':
+            case 'ISNUMBER': node.resultType = this.RESULT_TYPE.Boolean; return node.resultType;
             case 'NOW': node.resultType = this.RESULT_TYPE.DateTime; return node.resultType;
+            case 'TIMENOW': node.resultType = this.RESULT_TYPE.DateTime; return node.resultType;
             case 'TODAY': node.resultType = this.RESULT_TYPE.Date; return node.resultType;
             case 'DATE':
             case 'DATEVALUE': node.resultType = this.RESULT_TYPE.Date; return node.resultType;
@@ -396,6 +421,12 @@ export default class FormulaEngine {
             const substring = String(args[1] || '');
             return text.includes(substring);
           }
+          case 'BEGINS': {
+            if (args.length !== 2) throw new Error('BEGINS requires exactly two arguments: text, compare_text');
+            const text = args[0] == null ? '' : String(args[0]);
+            const compare = args[1] == null ? '' : String(args[1]);
+            return text.startsWith(compare);
+          }
           case 'FIND': {
             const findText = String(args[1] || '');
             const findSubstring = String(args[0] || '');
@@ -510,6 +541,120 @@ export default class FormulaEngine {
             }
             return text;
           }
+          case 'LOWER': {
+            if (args.length !== 1) throw new Error('LOWER requires exactly one argument');
+            const v = args[0];
+            if (v === null || v === undefined) return '';
+            const d = this.toDate(v);
+            const textValue = d ? this.toIsoZSeconds(d) : String(v);
+            return textValue.toLowerCase();
+          }
+          case 'UPPER': {
+            if (args.length !== 1) throw new Error('UPPER requires exactly one argument');
+            const v = args[0];
+            if (v === null || v === undefined) return '';
+            const d = this.toDate(v);
+            const textValue = d ? this.toIsoZSeconds(d) : String(v);
+            return textValue.toUpperCase();
+          }
+          case 'REVERSE': {
+            if (args.length !== 1) throw new Error('REVERSE requires exactly one argument');
+            const v = args[0];
+            if (v === null || v === undefined) return '';
+            const d = this.toDate(v);
+            const textValue = d ? this.toIsoZSeconds(d) : String(v);
+            return Array.from(textValue).reverse().join('');
+          }
+          case 'BLANKVALUE': {
+            if (args.length !== 2) throw new Error('BLANKVALUE requires exactly two arguments: expression, substitute');
+            const isBlank = (val) => {
+              if (val === null || val === undefined) return true;
+              if (typeof val === 'string') return val.trim() === '';
+              return false;
+            };
+            const expr = args[0];
+            const substitute = args[1];
+            return isBlank(expr) ? substitute : expr;
+          }
+          case 'NULLVALUE': {
+            if (args.length !== 2) throw new Error('NULLVALUE requires exactly two arguments: expression, substitute');
+            const expr = args[0];
+            const substitute = args[1];
+            return (expr === null || expr === undefined) ? substitute : expr;
+          }
+          case 'ISNUMBER': {
+            if (args.length !== 1) throw new Error('ISNUMBER requires exactly one argument');
+            const value = args[0];
+            if (value === null || value === undefined) return false;
+            if (typeof value === 'number') return Number.isFinite(value);
+            if (typeof value === 'boolean') return false;
+            const s = String(value).trim();
+            if (s === '') return false;
+            const n = Number(s);
+            return Number.isFinite(n);
+          }
+          case 'ABS': {
+            if (args.length !== 1) throw new Error('ABS requires exactly one argument');
+            const x = parseFloat(args[0]);
+            if (!Number.isFinite(x)) return 0;
+            return Math.abs(x);
+          }
+          case 'EXP': {
+            if (args.length !== 1) throw new Error('EXP requires exactly one argument');
+            const x = parseFloat(args[0]);
+            const val = Number.isFinite(x) ? x : 0;
+            return Math.exp(val);
+          }
+          case 'LN': {
+            if (args.length !== 1) throw new Error('LN requires exactly one argument');
+            const x = parseFloat(args[0]);
+            if (!Number.isFinite(x) || x <= 0) throw new Error('LN expects a positive numeric value');
+            return Math.log(x);
+          }
+          case 'LOG': {
+            if (args.length < 1 || args.length > 2) throw new Error('LOG requires one argument with optional base: number[, base]');
+            const number = parseFloat(args[0]);
+            if (!Number.isFinite(number) || number <= 0) throw new Error('LOG expects a positive numeric value');
+            if (args.length === 1) {
+              const log10 = Math.log10 ? Math.log10(number) : (Math.log(number) / Math.LN10);
+              return log10;
+            }
+            const base = parseFloat(args[1]);
+            if (!Number.isFinite(base) || base <= 0 || base === 1) throw new Error('LOG base must be positive, non-zero, and not equal to 1');
+            return Math.log(number) / Math.log(base);
+          }
+          case 'SQRT': {
+            if (args.length !== 1) throw new Error('SQRT requires exactly one argument');
+            const x = parseFloat(args[0]);
+            if (!Number.isFinite(x) || x < 0) throw new Error('SQRT expects a non-negative numeric value');
+            return Math.sqrt(x);
+          }
+          case 'ROUND': {
+            if (args.length !== 2) throw new Error('ROUND requires two arguments: number, num_digits');
+            const x = parseFloat(args[0]);
+            if (!Number.isFinite(x)) return 0;
+            const digitsRaw = Number(args[1]);
+            if (!Number.isFinite(digitsRaw)) throw new Error('ROUND num_digits must be numeric');
+            const digits = Math.trunc(digitsRaw);
+            const factor = Math.pow(10, digits);
+            return Math.round(x * factor) / factor;
+          }
+          case 'MCEILING': {
+            if (args.length !== 2) throw new Error('MCEILING requires two arguments: number, significance');
+            const x = parseFloat(args[0]);
+            if (!Number.isFinite(x)) return 0;
+            const significance = parseFloat(args[1]);
+            if (!Number.isFinite(significance) || significance === 0) throw new Error('MCEILING significance must be a non-zero numeric value');
+            return Math.ceil(x / significance) * significance;
+          }
+          case 'MFLOOR': {
+            if (args.length !== 2) throw new Error('MFLOOR requires two arguments: number, significance');
+            const x = parseFloat(args[0]);
+            if (!Number.isFinite(x)) return 0;
+            const significance = parseFloat(args[1]);
+            if (!Number.isFinite(significance) || significance === 0) throw new Error('MFLOOR significance must be a non-zero numeric value');
+            return Math.floor(x / significance) * significance;
+          }
           case 'VALUE': {
             if (args.length !== 1) throw new Error('VALUE requires exactly one argument');
             const v = args[0];
@@ -569,6 +714,12 @@ export default class FormulaEngine {
             const d = this.toDate(args[0]);
             if (!d) throw new Error('SECOND expects a date-like value');
             return d.getSeconds();
+          }
+          case 'MILLISECOND': {
+            if (args.length !== 1) throw new Error('MILLISECOND requires exactly one argument');
+            const d = this.toDate(args[0]);
+            if (!d) throw new Error('MILLISECOND expects a date-like value');
+            return d.getMilliseconds();
           }
           case 'CEILING': {
             if (args.length !== 1) throw new Error('CEILING requires exactly one argument');
@@ -649,6 +800,21 @@ export default class FormulaEngine {
               return this.toIsoZSeconds(pd);
             }
             return this.toIsoZSeconds(new Date());
+          }
+          case 'TIMENOW': {
+            if (args.length !== 0) throw new Error('TIMENOW requires no arguments');
+            const source = (() => {
+              if (variables && variables['TIMENOW()'] !== undefined) {
+                const tv = variables['TIMENOW()'];
+                if (tv === '') return new Date();
+                const pd = new Date(tv);
+                if (isNaN(pd.getTime())) throw new Error('Invalid date format for TIMENOW() test value');
+                return pd;
+              }
+              return new Date();
+            })();
+            const dUtc = new Date(Date.UTC(1970, 0, 1, source.getUTCHours(), source.getUTCMinutes(), source.getUTCSeconds(), source.getUTCMilliseconds()));
+            return dUtc.toISOString();
           }
           case 'TODAY': {
             if (args.length !== 0) throw new Error('TODAY requires no arguments');
