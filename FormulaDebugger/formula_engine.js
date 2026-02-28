@@ -249,8 +249,15 @@ export default class FormulaEngine {
             }
             case 'YEAR': node.resultType = this.RESULT_TYPE.Number; return node.resultType;
             case 'MID': node.resultType = this.RESULT_TYPE.Text; return node.resultType;
-            case 'TEXT': node.resultType = this.RESULT_TYPE.Text; return node.resultType;
-            case 'LPAD': node.resultType = this.RESULT_TYPE.Text; return node.resultType;
+            case 'LEFT':
+            case 'RIGHT':
+            case 'TRIM':
+            case 'TEXT':
+            case 'LPAD':
+            case 'RPAD':
+            case 'SUBSTITUTE':
+              node.resultType = this.RESULT_TYPE.Text; return node.resultType;
+            case 'LEN': node.resultType = this.RESULT_TYPE.Number; return node.resultType;
             case 'VALUE': node.resultType = this.RESULT_TYPE.Number; return node.resultType;
             case 'CASE':
               if (argTypes.length >= 3) {
@@ -406,6 +413,41 @@ export default class FormulaEngine {
             const end = start + length;
             return midText.slice(start, end);
           }
+          case 'LEFT': {
+            if (args.length !== 2) throw new Error('LEFT requires exactly two arguments: text, num_chars');
+            const leftText = args[0] == null ? '' : String(args[0]);
+            const nRaw = Number(args[1]);
+            if (!Number.isFinite(nRaw)) throw new Error('LEFT num_chars must be numeric');
+            const count = Math.trunc(nRaw);
+            if (count <= 0) return '';
+            return leftText.slice(0, count);
+          }
+          case 'RIGHT': {
+            if (args.length !== 2) throw new Error('RIGHT requires exactly two arguments: text, num_chars');
+            const rightText = args[0] == null ? '' : String(args[0]);
+            const nRaw = Number(args[1]);
+            if (!Number.isFinite(nRaw)) throw new Error('RIGHT num_chars must be numeric');
+            const count = Math.trunc(nRaw);
+            if (count <= 0) return '';
+            if (count >= rightText.length) return rightText;
+            return rightText.slice(rightText.length - count);
+          }
+          case 'TRIM': {
+            if (args.length !== 1) throw new Error('TRIM requires exactly one argument');
+            const v = args[0];
+            if (v === null || v === undefined) return '';
+            const d = this.toDate(v);
+            const textValue = d ? this.toIsoZSeconds(d) : String(v);
+            return textValue.trim();
+          }
+          case 'LEN': {
+            if (args.length !== 1) throw new Error('LEN requires exactly one argument');
+            const v = args[0];
+            if (v === null || v === undefined) return 0;
+            const d = this.toDate(v);
+            const textValue = d ? this.toIsoZSeconds(d) : String(v);
+            return textValue.length;
+          }
           case 'TEXT': {
             if (args.length !== 1) throw new Error('TEXT requires exactly one argument');
             const v = args[0];
@@ -428,6 +470,45 @@ export default class FormulaEngine {
             if (padStr.length === 0 && need > 0) throw new Error('LPAD pad_string cannot be empty when padding is needed');
             const left = (padStr.repeat(Math.ceil(need / padStr.length))).slice(0, need);
             return left + input;
+          }
+          case 'RPAD': {
+            if (args.length !== 2 && args.length !== 3) throw new Error('RPAD requires two or three arguments: text, padded_length[, pad_string]');
+            const input = args[0] == null ? '' : String(args[0]);
+            const nRaw = Number(args[1]);
+            if (!Number.isFinite(nRaw)) throw new Error('RPAD padded_length must be numeric');
+            const targetLen = Math.trunc(nRaw);
+            const padStr = (args.length === 3 ? String(args[2] ?? '') : ' ');
+            if (targetLen <= 0) return '';
+            if (input.length >= targetLen) return input.slice(0, targetLen);
+            const need = targetLen - input.length;
+            if (padStr.length === 0 && need > 0) throw new Error('RPAD pad_string cannot be empty when padding is needed');
+            const right = (padStr.repeat(Math.ceil(need / padStr.length))).slice(0, need);
+            return input + right;
+          }
+          case 'SUBSTITUTE': {
+            if (args.length !== 3 && args.length !== 4) throw new Error('SUBSTITUTE requires three arguments with optional fourth occurrence: text, old_text, new_text[, occurrence]');
+            const text = args[0] == null ? '' : String(args[0]);
+            const oldText = args[1] == null ? '' : String(args[1]);
+            const newText = args[2] == null ? '' : String(args[2]);
+            if (oldText === '') return text;
+            if (args.length === 3) return text.split(oldText).join(newText);
+            const occurrenceRaw = Number(args[3]);
+            if (!Number.isFinite(occurrenceRaw)) throw new Error('SUBSTITUTE occurrence must be numeric when provided');
+            const occurrence = Math.trunc(occurrenceRaw);
+            if (occurrence <= 0) throw new Error('SUBSTITUTE occurrence must be positive');
+            let count = 0;
+            let idx = -1;
+            let start = 0;
+            while (start <= text.length) {
+              idx = text.indexOf(oldText, start);
+              if (idx === -1) break;
+              count += 1;
+              if (count === occurrence) {
+                return text.slice(0, idx) + newText + text.slice(idx + oldText.length);
+              }
+              start = idx + oldText.length;
+            }
+            return text;
           }
           case 'VALUE': {
             if (args.length !== 1) throw new Error('VALUE requires exactly one argument');
