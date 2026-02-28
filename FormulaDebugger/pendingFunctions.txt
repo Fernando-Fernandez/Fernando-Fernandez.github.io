@@ -28,3 +28,8 @@ REQUIRESCRIPT
 URLENCODE
 URLFOR
 VLOOKUP
+
+Validate below in Salesforce:
+TIMENOW needs to return time instead of datetime
+NULLVALUE when testing is not receiving a null but empty string - we may need a checkbox for null
+MCEILING, MFLOOR, ROUND don't seem to work properly
