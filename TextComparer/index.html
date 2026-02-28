@@ -11,7 +11,7 @@
   .left-only   {background:#ffe6e6; color:#a00;}
   .right-only  {background:#e6f7ff; color:#00a;}
   .common      {background:#ffffff; color:#000;}
-  #result table {width:100%; border-collapse:collapse; margin-top:10px;}
+  #result table {width:100%; border-collapse:collapse; margin-top:10px; font-size:0.9em;}
   #result th, #result td {border:1px solid #ccc; padding:4px 8px; vertical-align:top;}
   .empty {font-style:italic; color:#777;}
 </style>
@@ -45,28 +45,22 @@ function computeLineDiff(leftLines, rightLines) {
     } else if (dp[i-1][j] > dp[i][j-1]) i--;
     else j--;
   }
-  const lcs = new Set(lcsIdx.map(([i]) => i)); // left indices that are common
+  lcsIdx.reverse(); // reverse to get natural order
   const diff = [];
   let leftPos = 0, rightPos = 0;
-  while (leftPos < leftLines.length && rightPos < rightLines.length) {
-    const left = leftLines[leftPos];
-    const right = rightLines[rightPos];
-    if (lcs.has(leftPos) && lcs.has(rightPos)) {
-      // matching line
-      diff.push({type:'common', left:leftPos, right:rightPos, line:left});
-      leftPos++; rightPos++;
-    } else if (!lcs.has(leftPos)) {
-      diff.push({type:'leftOnly',  left:leftPos, right:-1, line:left});
+  lcsIdx.forEach(([leftIdx, rightIdx]) => {
+    while (leftPos < leftIdx) {
+      diff.push({type:'leftOnly', left:leftPos, right:-1, line:leftLines[leftPos]});
       leftPos++;
-    } else if (!lcs.has(rightPos)) {
-      diff.push({type:'rightOnly', right:rightPos, left:-1, line:right});
-      rightPos++;
-    } else {
-      // one side advanced because lines don’t match any further
-      if (!lcs.has(leftPos)) leftPos++;
-      if (!lcs.has(rightPos)) rightPos++;
     }
-  }
+    while (rightPos < rightIdx) {
+      diff.push({type:'rightOnly', right:rightPos, left:-1, line:rightLines[rightPos]});
+      rightPos++;
+    }
+    diff.push({type:'common', left:leftIdx, right:rightIdx, line:leftLines[leftIdx]});
+    leftPos = leftIdx + 1;
+    rightPos = rightIdx + 1;
+  });
   while (leftPos < leftLines.length) diff.push({type:'leftOnly', left:leftPos, right:-1, line:leftLines[leftPos++]});
   while (rightPos < rightLines.length) diff.push({type:'rightOnly', right:rightPos, left:-1, line:rightLines[rightPos++]});
   return diff;
