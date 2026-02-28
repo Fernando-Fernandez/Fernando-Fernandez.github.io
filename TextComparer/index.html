@@ -3,18 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Side‑by‑Side Text Comparator</title>
-<style>
-  body {font-family: Arial, sans-serif; margin: 20px;}
-  .container {display: flex; gap: 10px;}
-  textarea {flex: 1; min-height: 300px; font-family: monospace;}
-  .highlight {font-family: monospace; padding: 2px 4px;}
-  .left-only   {background:#ffe6e6; color:#a00;}
-  .right-only  {background:#e6f7ff; color:#00a;}
-  .common      {background:#ffffff; color:#000;}
-  #result table {width:100%; border-collapse:collapse; margin-top:10px; font-size:0.9em;}
-  #result th, #result td {border:1px solid #ccc; padding:4px 8px; vertical-align:top;}
-  .empty {font-style:italic; color:#777;}
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <h2>Text Comparison</h2>
@@ -24,101 +13,6 @@
 </div>
 <button id="compareBtn">Compare</button>
 <div id="result"></div>
-<script>
-function computeLineDiff(leftLines, rightLines) {
-  const n = leftLines.length, m = rightLines.length;
-  // DP table for LCS length
-  const dp = Array.from({length: n+1}, () => Array(m+1).fill(0));
-  for (let i=1; i<=n; i++) {
-    for (let j=1; j<=m; j++) {
-      if (leftLines[i-1] === rightLines[j-1]) dp[i][j] = dp[i-1][j-1] + 1;
-      else dp[i][j] = Math.max(dp[i-1][j], dp[i][j-1]);
-    }
-  }
-  // Reconstruct LCS indices
-  const lcsIdx = [];
-  let i=n, j=m;
-  while (i>0 && j>0) {
-    if (leftLines[i-1] === rightLines[j-1]) {
-      lcsIdx.push([i-1, j-1]);
-      i--; j--;
-    } else if (dp[i-1][j] > dp[i][j-1]) i--;
-    else j--;
-  }
-  lcsIdx.reverse(); // reverse to get natural order
-  const diff = [];
-  let leftPos = 0, rightPos = 0;
-  lcsIdx.forEach(([leftIdx, rightIdx]) => {
-    while (leftPos < leftIdx) {
-      diff.push({type:'leftOnly', left:leftPos, right:-1, line:leftLines[leftPos]});
-      leftPos++;
-    }
-    while (rightPos < rightIdx) {
-      diff.push({type:'rightOnly', right:rightPos, left:-1, line:rightLines[rightPos]});
-      rightPos++;
-    }
-    diff.push({type:'common', left:leftIdx, right:rightIdx, line:leftLines[leftIdx]});
-    leftPos = leftIdx + 1;
-    rightPos = rightIdx + 1;
-  });
-  while (leftPos < leftLines.length) diff.push({type:'leftOnly', left:leftPos, right:-1, line:leftLines[leftPos++]});
-  while (rightPos < rightLines.length) diff.push({type:'rightOnly', right:rightPos, left:-1, line:rightLines[rightPos++]});
-  return diff;
-}
-
-function renderDiff(diff) {
-  const tbody = document.createElement('tbody');
-  let leftIdx = 0, rightIdx = 0;
-  diff.forEach(item => {
-    const tr = document.createElement('tr');
-    const leftTd = document.createElement('td');
-    const rightTd = document.createElement('td');
-    const statusTd = document.createElement('td');
-    if (item.type === 'common') {
-      leftTd.textContent = item.line;
-      rightTd.textContent = item.line;
-      statusTd.textContent = '';
-    } else if (item.type === 'leftOnly') {
-      leftTd.textContent = item.line;
-      rightTd.textContent = '';
-      statusTd.textContent = '';
-      leftTd.classList.add('left-only');
-      rightTd.classList.add('empty');
-    } else if (item.type === 'rightOnly') {
-      rightTd.textContent = item.line;
-      leftTd.textContent = '';
-      statusTd.textContent = '';
-      leftTd.classList.add('empty');
-      rightTd.classList.add('right-only');
-    }
-    tr.appendChild(leftTd);
-    tr.appendChild(rightTd);
-    tr.appendChild(statusTd);
-    tbody.appendChild(tr);
-    leftIdx = rightIdx = item.type === 'common' ? Math.max(leftIdx, rightIdx) + 1
-                                             : Math.max(leftIdx, rightIdx);
-  });
-  return tbody;
-}
-
-document.getElementById('compareBtn').addEventListener('click', () => {
-  const left  = document.getElementById('left');
-  const right = document.getElementById('right');
-  const result = document.getElementById('result');
-  // Clear previous result
-  result.innerHTML = '';
-  const leftLines  = left.value.split(/\r?\n/);
-  const rightLines = right.value.split(/\r?\n/);
-  const diff = computeLineDiff(leftLines, rightLines);
-  const tbody = renderDiff(diff);
-  const table = document.createElement('table');
-  table.innerHTML = `
-    <thead>
-      <tr><th>Left</th><th>Right</th><th>Status</th></tr>
-    </thead>`;
-  table.appendChild(tbody);
-  result.appendChild(table);
-});
-</script>
+<script src="app.js"></script>
 </body>
 </html>

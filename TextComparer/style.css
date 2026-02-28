@@ -1,0 +1,10 @@
+body {font-family: Arial, sans-serif; margin: 20px;}
+.container {display: flex; gap: 10px;}
+textarea {flex: 1; min-height: 300px; font-family: monospace;}
+.highlight {font-family: monospace; padding: 2px 4px;}
+.left-only   {background:#ffe6e6; color:#a00;}
+.right-only  {background:#e6f7ff; color:#00a;}
+.common      {background:#ffffff; color:#000;}
+#result table {width:100%; border-collapse:collapse; margin-top:10px; font-size:x-small;}
+#result th, #result td {border:1px solid #ccc; padding:4px 8px; vertical-align:top;}
+.empty {font-style:italic; color:#777;}
