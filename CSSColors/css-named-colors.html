@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSS Named Colors</title>
+<style>
+  :root {
+    --bg: #0b0d10;
+    --card: #14181f;
+    --text: #f3f4f6;
+    --muted: #9ca3af;
+    --border: #293241;
+    --accent: #60a5fa;
+    --input: #0f131a;
+    --shadow: rgba(0,0,0,0.35);
+  }
+  :root[data-theme="light"] {
+    --bg: #fafafa;
+    --card: #ffffff;
+    --text: #1a1a1a;
+    --muted: #666;
+    --border: #e5e5e5;
+    --accent: #2563eb;
+    --input: #ffffff;
+    --shadow: rgba(0,0,0,0.08);
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 24px;
+    line-height: 1.4;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: start;
+    margin-bottom: 18px;
+  }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px 0; }
+  .subtitle { color: var(--muted); font-size: 13px; margin: 0; }
+  h2 {
+    font-size: 15px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    margin: 28px 0 10px 0;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+    margin: 18px 0 18px;
+  }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    box-shadow: 0 8px 24px var(--shadow);
+  }
+  label { display:block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  input {
+    width: 100%;
+    background: var(--input);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 11px;
+    outline: none;
+    font: inherit;
+    font-size: 14px;
+  }
+  input:focus { border-color: var(--accent); }
+  button {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+  }
+  button:hover { border-color: var(--accent); }
+  .top-actions { display: flex; gap: 8px; align-items: center; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .results { margin-top: 10px; display: grid; gap: 6px; }
+  .nearest-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px;
+    cursor: pointer;
+  }
+  .nearest-row:hover { border-color: var(--accent); }
+  .nearest-rank { color: var(--muted); width: 22px; font-size: 12px; }
+  .nearest-dist { color: var(--muted); margin-left: auto; font-size: 12px; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+  .color {
+    display: flex;
+    align-items: center;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.05s;
+    user-select: none;
+  }
+  .color:hover { border-color: var(--accent); }
+  .color:active { transform: scale(0.98); }
+  .swatch {
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    margin-right: 10px;
+    border: 1px solid rgba(255,255,255,0.14);
+    flex-shrink: 0;
+  }
+  :root[data-theme="light"] .swatch { border-color: rgba(0,0,0,0.1); }
+  .info { display: flex; flex-direction: column; min-width: 0; }
+  .name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hex { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; color: var(--muted); }
+  .empty { color: var(--muted); padding: 24px 0; }
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--text);
+    color: var(--bg);
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 1000;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>CSS Named Colors</h1>
+    <p class="subtitle">Search by name or hex. Click any color to copy its name.</p>
+  </div>
+  <div class="top-actions">
+    <button id="themeToggle" type="button">Light background</button>
+  </div>
+</header>
+
+<section class="controls" aria-label="Color tools">
+  <div class="panel">
+    <label for="searchInput">Search + fuzzy match</label>
+    <input id="searchInput" type="search" placeholder="Try blu, sltgry, #ff, coral..." autocomplete="off">
+    <div id="searchHint" class="hint">Showing all named colors.</div>
+  </div>
+  <div class="panel">
+    <label for="nearestInput">Nearest named color</label>
+    <input id="nearestInput" type="text" placeholder="Enter #f97316, f97316, or #0af" autocomplete="off">
+    <div class="hint">Uses OKLab distance against CSS named colors.</div>
+    <div id="nearestResults" class="results"></div>
+  </div>
+</section>
+
+<div id="container"></div>
+<div id="toast"></div>
+
+<script>
+const colorGroups = {
+  "Reds": [
+    ["crimson", "#dc143c"],
+    ["darkred", "#8b0000"],
+    ["darksalmon", "#e9967a"],
+    ["firebrick", "#b22222"],
+    ["indianred", "#cd5c5c"],
+    ["lightcoral", "#f08080"],
+    ["lightsalmon", "#ffa07a"],
+    ["maroon", "#800000"],
+    ["red", "#ff0000"],
+    ["salmon", "#fa8072"],
+    ["tomato", "#ff6347"]
+  ],
+  "Greens": [
+    ["chartreuse", "#7fff00"],
+    ["darkgreen", "#006400"],
+    ["darkolivegreen", "#556b2f"],
+    ["darkseagreen", "#8fbc8f"],
+    ["forestgreen", "#228b22"],
+    ["green", "#008000"],
+    ["greenyellow", "#adff2f"],
+    ["lawngreen", "#7cfc00"],
+    ["lightgreen", "#90ee90"],
+    ["lime", "#00ff00"],
+    ["limegreen", "#32cd32"],
+    ["mediumaquamarine", "#66cdaa"],
+    ["mediumseagreen", "#3cb371"],
+    ["mediumspringgreen", "#00fa9a"],
+    ["olive", "#808000"],
+    ["olivedrab", "#6b8e23"],
+    ["palegreen", "#98fb98"],
+    ["seagreen", "#2e8b57"],
+    ["springgreen", "#00ff7f"],
+    ["yellowgreen", "#9acd32"]
+  ],
+  "Browns": [
+    ["brown", "#a52a2a"],
+    ["burlywood", "#deb887"],
+    ["chocolate", "#d2691e"],
+    ["darkgoldenrod", "#b8860b"],
+    ["goldenrod", "#daa520"],
+    ["peru", "#cd853f"],
+    ["rosybrown", "#bc8f8f"],
+    ["saddlebrown", "#8b4513"],
+    ["sandybrown", "#f4a460"],
+    ["sienna", "#a0522d"],
+    ["tan", "#d2b48c"],
+    ["wheat", "#f5deb3"]
+  ],
+  "Pinks": [
+    ["deeppink", "#ff1493"],
+    ["hotpink", "#ff69b4"],
+    ["lavenderblush", "#fff0f5"],
+    ["lightpink", "#ffb6c1"],
+    ["mediumvioletred", "#c71585"],
+    ["mistyrose", "#ffe4e1"],
+    ["palevioletred", "#db7093"],
+    ["pink", "#ffc0cb"]
+  ],
+  "Oranges": [
+    ["coral", "#ff7f50"],
+    ["darkorange", "#ff8c00"],
+    ["orange", "#ffa500"],
+    ["orangered", "#ff4500"],
+    ["papayawhip", "#ffefd5"],
+    ["peachpuff", "#ffdab9"]
+  ],
+  "Whites": [
+    ["aliceblue", "#f0f8ff"],
+    ["antiquewhite", "#faebd7"],
+    ["azure", "#f0ffff"],
+    ["beige", "#f5f5dc"],
+    ["bisque", "#ffe4c4"],
+    ["blanchedalmond", "#ffebcd"],
+    ["cornsilk", "#fff8dc"],
+    ["floralwhite", "#fffaf0"],
+    ["ghostwhite", "#f8f8ff"],
+    ["honeydew", "#f0fff0"],
+    ["ivory", "#fffff0"],
+    ["linen", "#faf0e6"],
+    ["mintcream", "#f5fffa"],
+    ["oldlace", "#fdf5e6"],
+    ["seashell", "#fff5ee"],
+    ["snow", "#fffafa"],
+    ["white", "#ffffff"],
+    ["whitesmoke", "#f5f5f5"]
+  ],
+  "Yellows": [
+    ["darkkhaki", "#bdb76b"],
+    ["gold", "#ffd700"],
+    ["khaki", "#f0e68c"],
+    ["lemonchiffon", "#fffacd"],
+    ["lightgoldenrodyellow", "#fafad2"],
+    ["lightyellow", "#ffffe0"],
+    ["moccasin", "#ffe4b5"],
+    ["navajowhite", "#ffdead"],
+    ["palegoldenrod", "#eee8aa"],
+    ["yellow", "#ffff00"]
+  ],
+  "Purples": [
+    ["blueviolet", "#8a2be2"],
+    ["darkmagenta", "#8b008b"],
+    ["darkorchid", "#9932cc"],
+    ["darkviolet", "#9400d3"],
+    ["fuchsia", "#ff00ff"],
+    ["indigo", "#4b0082"],
+    ["lavender", "#e6e6fa"],
+    ["magenta", "#ff00ff"],
+    ["mediumorchid", "#ba55d3"],
+    ["mediumpurple", "#9370db"],
+    ["orchid", "#da70d6"],
+    ["plum", "#dda0dd"],
+    ["purple", "#800080"],
+    ["rebeccapurple", "#663399"],
+    ["thistle", "#d8bfd8"],
+    ["violet", "#ee82ee"]
+  ],
+  "Blues / Cyans": [
+    ["aqua", "#00ffff"],
+    ["aquamarine", "#7fffd4"],
+    ["blue", "#0000ff"],
+    ["cadetblue", "#5f9ea0"],
+    ["cornflowerblue", "#6495ed"],
+    ["cyan", "#00ffff"],
+    ["darkblue", "#00008b"],
+    ["darkcyan", "#008b8b"],
+    ["darkslateblue", "#483d8b"],
+    ["darkturquoise", "#00ced1"],
+    ["deepskyblue", "#00bfff"],
+    ["dodgerblue", "#1e90ff"],
+    ["lightblue", "#add8e6"],
+    ["lightcyan", "#e0ffff"],
+    ["lightskyblue", "#87cefa"],
+    ["lightsteelblue", "#b0c4de"],
+    ["mediumblue", "#0000cd"],
+    ["mediumslateblue", "#7b68ee"],
+    ["mediumturquoise", "#48d1cc"],
+    ["midnightblue", "#191970"],
+    ["navy", "#000080"],
+    ["paleturquoise", "#afeeee"],
+    ["powderblue", "#b0e0e6"],
+    ["royalblue", "#4169e1"],
+    ["skyblue", "#87ceeb"],
+    ["slateblue", "#6a5acd"],
+    ["steelblue", "#4682b4"],
+    ["teal", "#008080"],
+    ["turquoise", "#40e0d0"]
+  ],
+  "Greys": [
+    ["black", "#000000"],
+    ["darkgray", "#a9a9a9"],
+    ["darkgrey", "#a9a9a9"],
+    ["darkslategray", "#2f4f4f"],
+    ["darkslategrey", "#2f4f4f"],
+    ["dimgray", "#696969"],
+    ["dimgrey", "#696969"],
+    ["gainsboro", "#dcdcdc"],
+    ["gray", "#808080"],
+    ["grey", "#808080"],
+    ["lightgray", "#d3d3d3"],
+    ["lightgrey", "#d3d3d3"],
+    ["lightslategray", "#778899"],
+    ["lightslategrey", "#778899"],
+    ["silver", "#c0c0c0"],
+    ["slategray", "#708090"],
+    ["slategrey", "#708090"]
+  ]
+};
+
+
+
+// Convert hex to OKLab — a perceptually uniform color space.
+function srgbToLinear(c) {
+  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+}
+function hexToOklab(hex) {
+  const r = srgbToLinear(parseInt(hex.slice(1, 3), 16) / 255);
+  const g = srgbToLinear(parseInt(hex.slice(3, 5), 16) / 255);
+  const b = srgbToLinear(parseInt(hex.slice(5, 7), 16) / 255);
+  const l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;
+  const m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b;
+  const s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b;
+  const l_ = Math.cbrt(l), m_ = Math.cbrt(m), s_ = Math.cbrt(s);
+  return {
+    L: 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+    a: 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+    b: 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_
+  };
+}
+function labDistSq(p, q) {
+  const dL = p.L - q.L, da = p.a - q.a, db = p.b - q.b;
+  return dL * dL + da * da + db * db;
+}
+function gradientSort(colors) {
+  if (colors.length <= 1) return colors;
+  const points = colors.map(([name, hex]) => ({ name, hex, lab: hexToOklab(hex) }));
+  let startIdx = 0;
+  for (let i = 1; i < points.length; i++) {
+    if (points[i].lab.L > points[startIdx].lab.L) startIdx = i;
+  }
+  const ordered = [points[startIdx]];
+  const remaining = points.filter((_, i) => i !== startIdx);
+  while (remaining.length > 0) {
+    const last = ordered[ordered.length - 1];
+    let bestIdx = 0;
+    let bestDist = labDistSq(last.lab, remaining[0].lab);
+    for (let i = 1; i < remaining.length; i++) {
+      const d = labDistSq(last.lab, remaining[i].lab);
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    }
+    ordered.push(remaining[bestIdx]);
+    remaining.splice(bestIdx, 1);
+  }
+  return ordered.map(p => [p.name, p.hex]);
+}
+
+for (const groupName of Object.keys(colorGroups)) {
+  colorGroups[groupName] = gradientSort(colorGroups[groupName]);
+}
+
+const allColors = Object.entries(colorGroups).flatMap(([group, colors]) =>
+  colors.map(([name, hex]) => ({ group, name, hex, lab: hexToOklab(hex) }))
+);
+
+const container = document.getElementById("container");
+const toast = document.getElementById("toast");
+const searchInput = document.getElementById("searchInput");
+const searchHint = document.getElementById("searchHint");
+const nearestInput = document.getElementById("nearestInput");
+const nearestResults = document.getElementById("nearestResults");
+const themeToggle = document.getElementById("themeToggle");
+let toastTimer = null;
+
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 1400);
+}
+function copyName(name) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(name).then(() => showToast("Copied: " + name)).catch(() => fallbackCopy(name));
+  } else { fallbackCopy(name); }
+}
+function fallbackCopy(name) {
+  const ta = document.createElement("textarea");
+  ta.value = name;
+  ta.style.position = "fixed";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand("copy"); showToast("Copied: " + name); }
+  catch (e) { showToast("Copy failed"); }
+  document.body.removeChild(ta);
+}
+
+function fuzzyScore(query, target) {
+  query = query.toLowerCase().trim();
+  target = target.toLowerCase();
+  if (!query) return 0;
+  const exact = target.indexOf(query);
+  if (exact !== -1) return exact;
+  let qi = 0, gaps = 0, last = -1;
+  for (let ti = 0; ti < target.length && qi < query.length; ti++) {
+    if (target[ti] === query[qi]) {
+      if (last !== -1) gaps += ti - last - 1;
+      last = ti;
+      qi++;
+    }
+  }
+  return qi === query.length ? 100 + gaps + target.length - query.length : Infinity;
+}
+
+function getMatchScore(query, color) {
+  if (!query) return 0;
+  const q = query.toLowerCase().trim();
+  const hex = color.hex.toLowerCase();
+  const compactHex = hex.slice(1);
+  if (hex.includes(q) || compactHex.includes(q.replace(/^#/, ""))) return 0;
+  return fuzzyScore(q, color.name);
+}
+
+function createColorItem(name, hex) {
+  const item = document.createElement("div");
+  item.className = "color";
+  item.title = "Click to copy: " + name;
+  item.addEventListener("click", () => copyName(name));
+
+  const swatch = document.createElement("div");
+  swatch.className = "swatch";
+  swatch.style.background = hex;
+
+  const info = document.createElement("div");
+  info.className = "info";
+  const nameEl = document.createElement("span");
+  nameEl.className = "name";
+  nameEl.textContent = name;
+  const hexEl = document.createElement("span");
+  hexEl.className = "hex";
+  hexEl.textContent = hex;
+  info.appendChild(nameEl);
+  info.appendChild(hexEl);
+  item.appendChild(swatch);
+  item.appendChild(info);
+  return item;
+}
+
+function renderColors() {
+  const query = searchInput.value.trim();
+  container.textContent = "";
+  let visibleCount = 0;
+  for (const [groupName, colors] of Object.entries(colorGroups)) {
+    const matches = colors
+      .map(([name, hex], index) => ({ name, hex, index, score: getMatchScore(query, { name, hex }) }))
+      .filter(c => c.score !== Infinity)
+      .sort((a, b) => query ? a.score - b.score || a.index - b.index : a.index - b.index);
+    if (!matches.length) continue;
+    const heading = document.createElement("h2");
+    heading.textContent = groupName + " (" + matches.length + ")";
+    container.appendChild(heading);
+    const grid = document.createElement("div");
+    grid.className = "grid";
+    for (const c of matches) grid.appendChild(createColorItem(c.name, c.hex));
+    container.appendChild(grid);
+    visibleCount += matches.length;
+  }
+  searchHint.textContent = query
+    ? "Showing " + visibleCount + " fuzzy match" + (visibleCount === 1 ? "" : "es") + "."
+    : "Showing all " + visibleCount + " named colors.";
+  if (!visibleCount) {
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = "No matching colors.";
+    container.appendChild(empty);
+  }
+}
+
+function normalizeHex(value) {
+  let v = value.trim().toLowerCase();
+  if (!v) return null;
+  if (!v.startsWith("#")) v = "#" + v;
+  if (/^#[0-9a-f]{3}$/.test(v)) {
+    v = "#" + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
+  }
+  return /^#[0-9a-f]{6}$/.test(v) ? v : null;
+}
+
+function renderNearest() {
+  nearestResults.textContent = "";
+  const hex = normalizeHex(nearestInput.value);
+  if (!nearestInput.value.trim()) return;
+  if (!hex) {
+    nearestResults.innerHTML = '<div class="hint">Enter a valid 3- or 6-digit hex color.</div>';
+    return;
+  }
+  const target = hexToOklab(hex);
+  const results = allColors
+    .map(c => ({ ...c, dist: Math.sqrt(labDistSq(target, c.lab)) }))
+    .sort((a, b) => a.dist - b.dist)
+    .slice(0, 5);
+  for (const [i, c] of results.entries()) {
+    const row = document.createElement("div");
+    row.className = "nearest-row";
+    row.title = "Click to copy: " + c.name;
+    row.addEventListener("click", () => copyName(c.name));
+    const rank = document.createElement("span");
+    rank.className = "nearest-rank";
+    rank.textContent = "#" + (i + 1);
+    const swatch = document.createElement("div");
+    swatch.className = "swatch";
+    swatch.style.background = c.hex;
+    const info = document.createElement("div");
+    info.className = "info";
+    const nameEl = document.createElement("span");
+    nameEl.className = "name";
+    nameEl.textContent = c.name;
+    const hexEl = document.createElement("span");
+    hexEl.className = "hex";
+    hexEl.textContent = c.hex;
+    const dist = document.createElement("span");
+    dist.className = "nearest-dist";
+    dist.textContent = "d " + c.dist.toFixed(4);
+    info.appendChild(nameEl);
+    info.appendChild(hexEl);
+    row.appendChild(rank);
+    row.appendChild(swatch);
+    row.appendChild(info);
+    row.appendChild(dist);
+    nearestResults.appendChild(row);
+  }
+}
+
+searchInput.addEventListener("input", renderColors);
+nearestInput.addEventListener("input", renderNearest);
+themeToggle.addEventListener("click", () => {
+  const root = document.documentElement;
+  const isDark = root.dataset.theme === "dark";
+  root.dataset.theme = isDark ? "light" : "dark";
+  themeToggle.textContent = isDark ? "Dark background" : "Light background";
+});
+
+renderColors();
+</script>
+</body>
+</html>

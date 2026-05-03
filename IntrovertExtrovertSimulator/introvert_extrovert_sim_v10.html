@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Introvert / Extrovert Neuroscience Simulator</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  background: #f5f4f0;
+  color: #1a1a18;
+  padding: 1.5rem;
+  max-width: 920px;
+  margin: 0 auto;
+}
+h1 { font-size: 20px; font-weight: 500; margin-bottom: 4px; }
+.subtitle { font-size: 13px; color: #5f5e5a; margin-bottom: 1.5rem; }
+
+/* spectrum */
+.spectrum-card { background:#fff; border:0.5px solid rgba(0,0,0,0.13); border-radius:12px; padding:16px 20px; margin-bottom:14px; }
+.spectrum-card h2 { font-size:14px; font-weight:500; margin-bottom:10px; }
+.spectrum-track { height:10px; border-radius:5px; background:linear-gradient(to right,#1D9E75,#b4b2a9,#EF9F27); margin-bottom:6px; }
+.spectrum-labels { display:flex; justify-content:space-between; font-size:11px; color:#5f5e5a; margin-bottom:8px; }
+.spectrum-you { font-size:12px; color:#5f5e5a; }
+.spectrum-you strong { color:#1a1a18; }
+
+/* insight */
+.insight { display:none; background:#EEEDFE; border:0.5px solid #AFA9EC; border-radius:10px; padding:10px 14px; font-size:12px; line-height:1.6; color:#26215C; margin-bottom:14px; }
+.insight.show { display:block; }
+.insight strong { font-weight:500; }
+
+/* person cards */
+.persons-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px; }
+.person-card { background:#fff; border:0.5px solid rgba(0,0,0,0.13); border-radius:12px; padding:14px; }
+.person-card.you-card { border-color:#534AB7; border-width:1.5px; }
+
+/* avatar */
+.avatar-wrap { display:flex; justify-content:center; margin-bottom:8px; }
+.avatar-img { width:80px; height:80px; }
+.state-badge {
+  display:block; text-align:center; font-size:10px; font-weight:500;
+  margin-bottom:6px; letter-spacing:.02em;
+  padding:2px 6px; border-radius:6px;
+}
+
+.p-name { font-size:15px; font-weight:500; margin-bottom:2px; }
+.p-tag { display:inline-block; font-size:10px; padding:2px 7px; border-radius:6px; margin-bottom:10px; }
+.tag-i { background:#E1F5EE; color:#0F6E56; }
+.tag-e { background:#FAEEDA; color:#854F0B; }
+.tag-y { background:#EEEDFE; color:#3C3489; }
+
+/* bars */
+.bar-wrap { margin-bottom:6px; }
+.bar-row { display:flex; justify-content:space-between; font-size:11px; color:#5f5e5a; margin-bottom:2px; align-items:center; gap:4px; }
+.bar-left { display:flex; align-items:center; gap:4px; }
+.bar-track { height:7px; background:#f1efe8; border-radius:4px; overflow:hidden; }
+.bar-fill { height:100%; border-radius:4px; transition:width .4s ease; }
+.ba-i{background:#1D9E75}.ba-e{background:#EF9F27}.ba-y{background:#7F77DD}
+.b-nrg{background:#378ADD}.b-cst{background:#E24B4A}.b-foc{background:#534AB7}.b-qlty{background:#1D9E75}.b-blw{background:#E24B4A}
+.meta { font-size:10px; color:#888780; margin-top:2px; }
+
+/* narrative */
+.narrative { margin-top:10px; font-size:11px; line-height:1.6; color:#444441; min-height:44px; border-top:0.5px solid rgba(0,0,0,0.07); padding-top:8px; font-style:italic; }
+
+/* status colours */
+.ok{color:#1D9E75}.warn{color:#BA7517}.err{color:#E24B4A}.info{color:#378ADD}
+
+/* scenario cards */
+.scenarios-card { background:#fff; border:0.5px solid rgba(0,0,0,0.13); border-radius:12px; padding:16px 20px; margin-bottom:14px; }
+.scenarios-card h2 { font-size:14px; font-weight:500; margin-bottom:4px; }
+.sc-sub { font-size:11px; color:#5f5e5a; margin-bottom:12px; }
+.scenarios-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px; }
+.sc-card { border:0.5px solid rgba(0,0,0,0.14); border-radius:10px; padding:10px 12px; cursor:pointer; background:#fff; transition:background .15s,border-color .15s; user-select:none; }
+.sc-card:hover { background:#f5f4f0; border-color:rgba(0,0,0,0.25); }
+.sc-icon { font-size:22px; margin-bottom:4px; }
+.sc-title { font-size:12px; font-weight:500; margin-bottom:2px; }
+.sc-desc { font-size:10px; color:#5f5e5a; line-height:1.4; }
+.sc-dur { font-size:9px; margin-top:5px; color:#888780; }
+
+/* planner */
+.planner-card { background:#fff; border:0.5px solid rgba(0,0,0,0.13); border-radius:12px; padding:16px 20px; margin-bottom:14px; }
+.planner-card h2 { font-size:14px; font-weight:500; margin-bottom:4px; }
+.plan-sub { font-size:11px; color:#5f5e5a; margin-bottom:12px; }
+.day-slots { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:10px; }
+.day-slot { border:0.5px dashed rgba(0,0,0,0.2); border-radius:8px; min-height:64px; padding:8px; background:#fafaf8; }
+.day-slot h4 { font-size:10px; font-weight:500; color:#5f5e5a; margin-bottom:4px; text-transform:uppercase; letter-spacing:.04em; }
+.slot-item { display:flex; align-items:center; gap:4px; background:#f1efe8; border-radius:5px; padding:3px 6px; margin-bottom:3px; font-size:10px; cursor:pointer; }
+.slot-item:hover { background:#e8e6e0; }
+.slot-rm { color:#888780; margin-left:auto; }
+
+/* controls */
+.controls-card { background:#fff; border:0.5px solid rgba(0,0,0,0.13); border-radius:12px; padding:16px 20px; margin-bottom:14px; }
+.controls-card h2 { font-size:14px; font-weight:500; margin-bottom:12px; }
+.ctrl-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.ctrl-section h3 { font-size:11px; font-weight:500; color:#5f5e5a; text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px; }
+.ctrl-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap; }
+.ctrl-row label { font-size:11px; color:#5f5e5a; min-width:100px; }
+.ctrl-row input[type=range] { flex:1; min-width:80px; }
+.ctrl-row .val { font-size:11px; font-weight:500; min-width:28px; }
+.btn-row { display:flex; flex-wrap:wrap; gap:6px; }
+button { font-size:11px; padding:5px 10px; border-radius:8px; border:0.5px solid rgba(0,0,0,0.22); background:#fff; color:#1a1a18; cursor:pointer; }
+button:hover { background:#f1efe8; }
+button.primary { background:#1a1a18; color:#f5f4f0; border-color:#1a1a18; }
+button.primary:hover { background:#2c2c2a; }
+
+/* tooltip */
+.tip-icon { display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:#d3d1c7;color:#444;font-size:9px;font-weight:500;cursor:default;position:relative;user-select:none;flex-shrink:0; }
+.tip-icon:hover .tip-box { display:block; }
+.tip-box { display:none;position:absolute;left:18px;top:-4px;z-index:200;background:#2c2c2a;color:#f1efe8;font-size:11px;line-height:1.55;padding:8px 10px;border-radius:8px;width:220px;pointer-events:none; }
+.tip-box strong { color:#fff;font-weight:500; }
+
+/* log */
+.log-card { background:#fff; border:0.5px solid rgba(0,0,0,0.13); border-radius:12px; padding:14px 16px; }
+.log-card h2 { font-size:13px; font-weight:500; color:#5f5e5a; margin-bottom:8px; }
+.log { background:#f5f4f0; border-radius:8px; padding:10px; max-height:180px; overflow-y:auto; font-size:11px; font-family:ui-monospace,monospace; line-height:1.6; }
+.log-entry { padding:2px 0; border-bottom:0.5px solid rgba(0,0,0,0.05); }
+.log-entry:last-child { border-bottom:none; }
+
+.sec-divider { border:none; border-top:0.5px solid rgba(0,0,0,0.08); margin:10px 0 6px; }
+.two-col { display:grid; grid-template-columns:3fr 2fr; gap:12px; margin-bottom:14px; align-items:start; }
+.recovery-col { display:flex; flex-direction:column; gap:8px; }
+
+/* cumulative panel */
+.cum-card { background:#fff; border:0.5px solid rgba(0,0,0,0.13); border-radius:12px; padding:14px 20px; margin-bottom:14px; }
+.cum-card h2 { font-size:14px; font-weight:500; margin-bottom:12px; }
+.cum-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+.cum-name { font-size:11px; font-weight:500; color:#5f5e5a; margin-bottom:5px; }
+.cum-bar { height:14px; background:#f1efe8; border-radius:7px; overflow:hidden; display:flex; margin-bottom:5px; }
+.cum-seg { height:100%; transition:width .5s ease; min-width:0; }
+.cum-stats { font-size:10px; color:#888780; line-height:1.6; }
+.cum-legend { display:flex; gap:14px; margin-top:10px; flex-wrap:wrap; border-top:0.5px solid rgba(0,0,0,0.07); padding-top:8px; }
+.cum-legend span { font-size:10px; color:#5f5e5a; display:flex; align-items:center; gap:4px; }
+.cum-dot { display:inline-block; width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+@media (max-width:640px) {
+  .persons-grid { grid-template-columns:1fr; }
+  .day-slots { grid-template-columns:1fr; }
+  .ctrl-grid { grid-template-columns:1fr; }
+  .scenarios-grid { grid-template-columns:repeat(2,1fr); }
+}
+</style>
+</head>
+<body>
+
+<h1>Introvert / Extrovert Neuroscience Simulator</h1>
+<p class="subtitle">Based on DeYoung et al. (2010), Forsman et al. (2012), Smillie et al., Eysenck (1967). Faces reflect current neurological state.</p>
+
+<!-- SPECTRUM -->
+<div class="spectrum-card">
+  <h2>Where are you on the spectrum?</h2>
+  <div class="spectrum-track"></div>
+  <div class="spectrum-labels"><span>introvert</span><span>ambivert</span><span>extrovert</span></div>
+  <input type="range" style="width:100%;margin-bottom:6px" id="you-slider" min="0" max="100" value="30">
+  <div class="spectrum-you">Your profile: <strong id="you-label">slightly introverted</strong> &mdash; arousal baseline <strong id="you-baseline">65</strong>, RPE reactivity <strong id="you-rpe">0.42</strong>, sensitivity <strong id="you-sens">0.72</strong></div>
+</div>
+
+<!-- INSIGHT -->
+<div class="insight" id="insight-box"><strong id="insight-title"></strong> &mdash; <span id="insight-text"></span></div>
+
+<!-- PERSONS -->
+<div class="persons-grid">
+
+  <!-- ISAAC -->
+  <div class="person-card">
+    <div class="avatar-wrap"><div class="avatar-img" id="i-face"></div></div>
+    <div class="state-badge ok" id="i-badge">within tolerance</div>
+    <div class="p-name">Isaac</div>
+    <span class="p-tag tag-i">Introvert</span>
+    <div class="bar-wrap">
+      <div class="bar-row"><div class="bar-left"><span>cortical arousal</span><span class="tip-icon">?<span class="tip-box"><strong>Baseline 72.</strong> Isaac starts near the ceiling. High sensitivity (0.85) means every stimulus lands harder. Quiet lets arousal drift toward the Yerkes-Dodson sweet spot (45-65).</span></span></div><span id="i-av">72</span></div>
+      <div class="bar-track"><div class="bar-fill ba-i" id="i-ab" style="width:72%"></div></div>
+    </div>
+    <div class="bar-wrap">
+      <div class="bar-row"><span>social energy</span><span id="i-ev">100</span></div>
+      <div class="bar-track"><div class="bar-fill b-nrg" id="i-eb" style="width:100%"></div></div>
+    </div>
+    <div class="bar-wrap">
+      <div class="bar-row"><div class="bar-left"><span>performance cost</span><span class="tip-icon">?<span class="tip-box"><strong>PFC override cost.</strong> Acting extroverted is metabolically expensive for Isaac. Crash at 80 forces mandatory recovery.</span></span></div><span id="i-cv">0</span></div>
+      <div class="bar-track"><div class="bar-fill b-cst" id="i-cb" style="width:0%"></div></div>
+    </div>
+    <div class="bar-wrap">
+      <div class="bar-row"><span>focus / output</span><span id="i-qv">-</span></div>
+      <div class="bar-track"><div class="bar-fill b-foc" id="i-fb" style="width:0%"></div></div>
+    </div>
+    <div class="narrative" id="i-narrative">At rest. Arousal elevated but stable - the introvert's characteristic resting state.</div>
+  </div>
+
+  <!-- YOU -->
+  <div class="person-card you-card">
+    <div class="avatar-wrap"><div class="avatar-img" id="y-face"></div></div>
+    <div class="state-badge ok" id="y-badge">within tolerance</div>
+    <div class="p-name">You</div>
+    <span class="p-tag tag-y" id="you-tag">slightly introverted</span>
+    <div class="bar-wrap">
+      <div class="bar-row"><span>cortical arousal</span><span id="y-av">65</span></div>
+      <div class="bar-track"><div class="bar-fill ba-y" id="y-ab" style="width:65%"></div></div>
+    </div>
+    <div class="bar-wrap">
+      <div class="bar-row"><span>social energy</span><span id="y-ev">100</span></div>
+      <div class="bar-track"><div class="bar-fill b-nrg" id="y-eb" style="width:100%"></div></div>
+    </div>
+    <div class="bar-wrap">
+      <div class="bar-row"><span>performance cost</span><span id="y-cv">0</span></div>
+      <div class="bar-track"><div class="bar-fill b-cst" id="y-cb" style="width:0%"></div></div>
+    </div>
+    <div class="bar-wrap">
+      <div class="bar-row"><span>focus / output</span><span id="y-qv">-</span></div>
+      <div class="bar-track"><div class="bar-fill b-foc" id="y-fb" style="width:0%"></div></div>
+    </div>
+    <div class="narrative" id="y-narrative">Your profile is set by the slider. Adjust it to match how you feel in social situations.</div>
+  </div>
+
+  <!-- ELIJAH -->
+  <div class="person-card">
+    <div class="avatar-wrap"><div class="avatar-img" id="e-face"></div></div>
+    <div class="state-badge warn" id="e-badge">below optimum</div>
+    <div class="p-name">Elijah</div>
+    <span class="p-tag tag-e">Extrovert</span>
+    <div class="bar-wrap">
+      <div class="bar-row"><div class="bar-left"><span>cortical arousal</span><span class="tip-icon">?<span class="tip-box"><strong>Baseline 32.</strong> Elijah starts well below the deep-work sweet spot. Stimulation-seeking is a corrective drive, not preference. Social environments efficiently raise arousal via dopamine hits.</span></span></div><span id="e-av">32</span></div>
+      <div class="bar-track"><div class="bar-fill ba-e" id="e-ab" style="width:32%"></div></div>
+    </div>
+    <div class="bar-wrap">
+      <div class="bar-row"><span>social energy</span><span id="e-ev">100</span></div>
+      <div class="bar-track"><div class="bar-fill b-nrg" id="e-eb" style="width:100%"></div></div>
+    </div>
+    <div class="bar-wrap">
+      <div class="bar-row"><div class="bar-left"><span>below optimum</span><span class="tip-icon">?<span class="tip-box"><strong>Understimulated.</strong> Elijah's arousal is below 40. Focus is shallow and the drive to seek stimulation is strong. This is the extrovert discomfort zone.</span></span></div><span id="e-opt">yes</span></div>
+      <div class="bar-track"><div class="bar-fill b-blw" id="e-ob" style="width:20%"></div></div>
+    </div>
+    <div class="bar-wrap">
+      <div class="bar-row"><span>focus / output</span><span id="e-qv">-</span></div>
+      <div class="bar-track"><div class="bar-fill b-foc" id="e-fb" style="width:0%"></div></div>
+    </div>
+    <div class="narrative" id="e-narrative">Understimulated. The drive toward stimulation is already active - Elijah's arousal sits below the functional floor.</div>
+  </div>
+
+</div>
+
+<!-- CUMULATIVE DAY PANEL -->
+<div class="cum-card">
+  <h2>Day so far</h2>
+  <div class="cum-grid">
+    <div>
+      <div class="cum-name">Isaac</div>
+      <div class="cum-bar">
+        <div class="cum-seg" id="i-cum-focus"    style="background:#534AB7;width:0%"></div>
+        <div class="cum-seg" id="i-cum-comms"    style="background:#378ADD;width:0%"></div>
+        <div class="cum-seg" id="i-cum-social"   style="background:#EF9F27;width:0%"></div>
+        <div class="cum-seg" id="i-cum-recovery" style="background:#1D9E75;width:0%"></div>
+      </div>
+      <div class="cum-stats" id="i-cum-stats">no activity yet</div>
+    </div>
+    <div>
+      <div class="cum-name">You</div>
+      <div class="cum-bar">
+        <div class="cum-seg" id="y-cum-focus"    style="background:#534AB7;width:0%"></div>
+        <div class="cum-seg" id="y-cum-comms"    style="background:#378ADD;width:0%"></div>
+        <div class="cum-seg" id="y-cum-social"   style="background:#EF9F27;width:0%"></div>
+        <div class="cum-seg" id="y-cum-recovery" style="background:#1D9E75;width:0%"></div>
+      </div>
+      <div class="cum-stats" id="y-cum-stats">no activity yet</div>
+    </div>
+    <div>
+      <div class="cum-name">Elijah</div>
+      <div class="cum-bar">
+        <div class="cum-seg" id="e-cum-focus"    style="background:#534AB7;width:0%"></div>
+        <div class="cum-seg" id="e-cum-comms"    style="background:#378ADD;width:0%"></div>
+        <div class="cum-seg" id="e-cum-social"   style="background:#EF9F27;width:0%"></div>
+        <div class="cum-seg" id="e-cum-recovery" style="background:#1D9E75;width:0%"></div>
+      </div>
+      <div class="cum-stats" id="e-cum-stats">no activity yet</div>
+    </div>
+  </div>
+  <div class="cum-legend">
+    <span><span class="cum-dot" style="background:#534AB7"></span>deep focus</span>
+    <span><span class="cum-dot" style="background:#378ADD"></span>comms / meetings</span>
+    <span><span class="cum-dot" style="background:#EF9F27"></span>social</span>
+    <span><span class="cum-dot" style="background:#1D9E75"></span>recovery</span>
+  </div>
+</div>
+
+<!-- SCENARIOS + RECOVERY -->
+<div class="two-col">
+
+  <!-- LEFT: scenarios -->
+  <div class="scenarios-card" style="margin-bottom:0">
+    <h2>Choose a scenario</h2>
+    <p class="sc-sub">Click to run instantly. Drag cards into the day planner below to sequence a full day.</p>
+    <div class="scenarios-grid" id="sc-grid"></div>
+  </div>
+
+  <!-- RIGHT: recovery -->
+  <div class="scenarios-card" style="margin-bottom:0">
+    <h2>Recovery</h2>
+    <p class="sc-sub">Recovery paths are opposite by type - removing input vs adding rewarding input.</p>
+    <div class="recovery-col">
+      <div class="sc-card" onclick="isaacRecovers()">
+        <div class="sc-icon">🌿</div>
+        <div class="sc-title">Isaac alone</div>
+        <div class="sc-desc">90 min solitude - arousal decays, performance cost clears</div>
+        <div class="sc-dur">90 min</div>
+      </div>
+      <div class="sc-card" onclick="youRecovers()">
+        <div class="sc-icon">🔄</div>
+        <div class="sc-title">You recover</div>
+        <div class="sc-desc">Adapts to your personality type - solitude or social</div>
+        <div class="sc-dur">60-90 min</div>
+      </div>
+      <div class="sc-card" onclick="samSocialRecharge()">
+        <div class="sc-icon">☕</div>
+        <div class="sc-title">Elijah socializes</div>
+        <div class="sc-desc">60 min casual social - RPE returns exceed cost, scales with depletion</div>
+        <div class="sc-dur">60 min</div>
+      </div>
+      <div class="sc-card" onclick="samRests()">
+        <div class="sc-icon">🤫</div>
+        <div class="sc-title">Elijah in silence</div>
+        <div class="sc-desc">60 min quiet - minimal return, may drop below optimum</div>
+        <div class="sc-dur">60 min</div>
+      </div>
+      <div class="sc-card" onclick="resetAll()" style="border-color:rgba(163,45,45,0.25);background-color:salmon">
+        <div class="sc-icon">↺</div>
+        <div class="sc-title">Reset all</div>
+        <div class="sc-desc">Return everyone to initial state</div>
+        <div class="sc-dur">—</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- DAY PLANNER -->
+<div class="planner-card">
+  <h2>Build your day</h2>
+  <p class="plan-sub">Drag scenarios into slots, then run the full sequence. Preset days give instant starting points.</p>
+  <div class="day-slots">
+    <div class="day-slot" ondragover="allowDrop(event)" ondrop="dropScenario(event,'morning')">
+      <h4>morning</h4><div id="slot-morning-items"></div>
+    </div>
+    <div class="day-slot" ondragover="allowDrop(event)" ondrop="dropScenario(event,'afternoon')">
+      <h4>afternoon</h4><div id="slot-afternoon-items"></div>
+    </div>
+    <div class="day-slot" ondragover="allowDrop(event)" ondrop="dropScenario(event,'evening')">
+      <h4>evening</h4><div id="slot-evening-items"></div>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="primary" onclick="runDay()">run full day</button>
+    <button onclick="loadPresetDay('office')">preset: office day</button>
+    <button onclick="loadPresetDay('remote')">preset: remote day</button>
+    <button onclick="loadPresetDay('social')">preset: heavy social day</button>
+    <button onclick="clearDay()">clear</button>
+  </div>
+</div>
+
+<!-- MANUAL CONTROLS -->
+<button id="ctrl-toggle" onclick="toggleControls()" style="margin-bottom:10px;font-size:12px;padding:7px 16px;border-radius:8px;border:0.5px solid rgba(0,0,0,0.22);background:#fff;cursor:pointer;display:flex;align-items:center;gap:6px">
+  <span id="ctrl-arrow" style="font-size:10px">▸</span> manual controls
+</button>
+<div class="controls-card" id="controls-card" style="display:none">
+  <h2>Manual controls</h2>
+  <div class="ctrl-grid">
+    <div class="ctrl-section">
+      <h3>deep work</h3>
+      <div class="ctrl-row"><label>duration (min)</label><input type="range" min="10" max="120" step="10" value="60" id="dw-dur"><span class="val" id="dw-dur-v">60</span></div>
+      <div class="ctrl-row"><label>complexity (1-10)</label><input type="range" min="1" max="10" step="1" value="7" id="dw-cplx"><span class="val" id="dw-cplx-v">7</span></div>
+      <div class="btn-row">
+        <button onclick="doDeepWork()">run session</button>
+        <button onclick="samBoostsArousal()">Elijah boosts arousal first</button>
+      </div>
+    </div>
+    <div class="ctrl-section">
+      <h3>reward signals</h3>
+      <div class="ctrl-row"><label>magnitude</label><input type="range" min="0.1" max="1" step="0.1" value="0.8" id="rew-mag"><span class="val" id="rew-mag-v">0.8</span></div>
+      <div class="btn-row">
+        <button onclick="doReward()">unexpected reward</button>
+        <button onclick="doApproval()">social approval</button>
+      </div>
+    </div>
+    <div class="ctrl-section">
+      <h3>social events</h3>
+      <div class="ctrl-row"><label>party intensity</label><input type="range" min="10" max="100" step="10" value="60" id="party-int"><span class="val" id="party-int-v">60</span></div>
+      <div class="btn-row" style="margin-bottom:6px">
+        <button onclick="party(10)">party +10 min</button>
+        <button onclick="party(20)">party +20 min</button>
+        <button onclick="party(30)">party +30 min</button>
+      </div>
+      <div class="ctrl-row"><label>meeting (min)</label><input type="range" min="10" max="120" step="10" value="60" id="meet-dur"><span class="val" id="meet-dur-v">60</span></div>
+      <div class="btn-row"><button onclick="doMeeting()">run meeting</button></div>
+    </div>
+    <div class="ctrl-section">
+      <h3>recovery</h3>
+      <p style="font-size:11px;color:#888780;font-style:italic">Recovery options are now in the scenario cards above.</p>
+    </div>
+  </div>
+</div>
+
+<!-- LOG -->
+<div class="log-card">
+  <h2>event log</h2>
+  <div class="log" id="log">
+    <div class="log-entry info">ready - set your personality, pick a scenario, or build your day</div>
+  </div>
+</div>
+
+<script>
+// ==========================================================================
+// CUMULATIVE TRACKING
+// ==========================================================================
+const cum = {
+  i: { deepFocus:0, comms:0, social:0, recovery:0, qTotal:0, qCount:0 },
+  y: { deepFocus:0, comms:0, social:0, recovery:0, qTotal:0, qCount:0 },
+  e: { deepFocus:0, comms:0, social:0, recovery:0, qTotal:0, qCount:0 },
+};
+function addCum(k, type, dur, quality){
+  const c=cum[k]; if(!c) return;
+  if(type==='deepFocus'){ c.deepFocus+=dur; if(quality>0){c.qTotal+=quality;c.qCount++;} }
+  else if(type==='comms')    c.comms   +=dur;
+  else if(type==='social')   c.social  +=dur;
+  else if(type==='recovery') c.recovery+=dur;
+}
+function renderCumulative(){
+  ['i','y','e'].forEach(k=>{
+    const c=cum[k];
+    const total=c.deepFocus+c.comms+c.social+c.recovery;
+    if(total===0){
+      document.getElementById(k+'-cum-stats').textContent='no activity yet';
+      ['focus','comms','social','recovery'].forEach(t=>{
+        const el=document.getElementById(k+'-cum-'+t); if(el) el.style.width='0%';
+      });
+      return;
+    }
+    const p=v=>r0(v/total*100)+'%';
+    document.getElementById(k+'-cum-focus').style.width   = p(c.deepFocus);
+    document.getElementById(k+'-cum-comms').style.width   = p(c.comms);
+    document.getElementById(k+'-cum-social').style.width  = p(c.social);
+    document.getElementById(k+'-cum-recovery').style.width= p(c.recovery);
+    const avgQ  = c.qCount>0 ? r0(c.qTotal/c.qCount*100)+'%' : '-';
+    const hrs   = Math.floor(total/60), mins=total%60;
+    const tStr  = hrs>0 ? hrs+'h '+mins+'m' : mins+'m';
+    document.getElementById(k+'-cum-stats').textContent =
+      tStr+' total | focus: '+r0(c.deepFocus)+'m | comms: '+r0(c.comms)+'m | avg focus quality: '+avgQ;
+  });
+}
+
+// ==========================================================================
+// STATE
+// ==========================================================================
+const s = {
+  i: { arousal:72, energy:100, cost:0, focus:0, quality:0,
+       baseline:72, ceiling:100, crashAt:80,
+       sens:0.85, rpe:0.35, distract:0.15, procDepth:0.88, sustAttn:0.85 },
+  y: { arousal:65, energy:100, cost:0, focus:0, quality:0,
+       baseline:65, ceiling:100, crashAt:88,
+       sens:0.72, rpe:0.42, distract:0.28, procDepth:0.74, sustAttn:0.72 },
+  e: { arousal:32, energy:100, focus:0, quality:0,
+       baseline:32, ceiling:100,
+       sens:0.45, rpe:0.78, distract:0.55, procDepth:0.52, sustAttn:0.48 }
+};
+
+// ==========================================================================
+// FACE GENERATION
+// ==========================================================================
+function getExpression(p) {
+  const cost = p.cost || 0, crashAt = p.crashAt || 100;
+  if (cost >= crashAt)          return 'crashed';
+  if (p.energy < 15)            return 'exhausted';
+  if (p.arousal >= 90)          return 'overloaded';
+  if (p.arousal >= 80 || cost >= crashAt * 0.8) return 'stressed';
+  if (p.quality > 0.6 && p.arousal >= 45 && p.arousal <= 68) return 'focused';
+  if (p.energy < 30)            return 'tired';
+  if (p.rpe >= 0.65) {
+    if (p.arousal < 36)         return 'bored';
+    if (p.arousal >= 44)        return 'energized';
+    return 'normal';
+  }
+  return 'normal';
+}
+
+function makeFace(who, expr) {
+  // colours per character
+  const cfg = {
+    isaac: { skin:'#EBC9A0', skinSh:'#D4A87A', hair:'#1E0C04', bg:'#EEF6FF', accent:'#1D9E75', glasses:true  },
+    elijah:{ skin:'#C89060', skinSh:'#A87040', hair:'#0D0600', bg:'#FFF5E8', accent:'#EF9F27', glasses:false },
+    you:   { skin:'#D4A870', skinSh:'#BC9050', hair:'#2A1508', bg:'#F2EEFF', accent:'#7F77DD', glasses:false },
+  };
+  const c = cfg[who] || cfg.you;
+  const cid = who[0]; // i / e / y - used in clipPath IDs
+
+  // expression table
+  const E = {
+    normal:    { ey:4.8, lid:0,   bY:35, bIn:0,  bOut:0,  mouth:'M 28,62 Q 40,68 52,62' },
+    focused:   { ey:4.2, lid:0,   bY:34, bIn:-1, bOut:0,  mouth:'M 30,61 Q 40,65 50,61' },
+    stressed:  { ey:5.2, lid:0,   bY:32, bIn:2,  bOut:0,  mouth:'M 27,64 Q 40,58 53,64' },
+    overloaded:{ ey:6,   lid:0,   bY:30, bIn:3,  bOut:1,  mouth:'M 24,66 Q 40,55 56,66' },
+    tired:     { ey:3.2, lid:2.5, bY:37, bIn:-1, bOut:-1, mouth:'M 30,62 L 50,62'       },
+    exhausted: { ey:2.5, lid:3.5, bY:38, bIn:-2, bOut:-1, mouth:'M 28,63 Q 40,58 52,63' },
+    crashed:   { ey:2,   lid:4.2, bY:39, bIn:-2, bOut:-2, mouth:'M 25,65 Q 40,56 55,65' },
+    energized: { ey:5.8, lid:0,   bY:33, bIn:0,  bOut:1,  mouth:'M 23,59 Q 40,70 57,59' },
+    bored:     { ey:3.2, lid:2,   bY:37, bIn:0,  bOut:0,  mouth:'M 29,63 L 51,63'       },
+  };
+  const e = E[expr] || E.normal;
+
+  // eyebrow paths
+  const ba = e.bIn, bo = e.bOut, by = e.bY;
+  const lBrow = `M ${22+bo},${by+bo} Q 29,${by-2+ba} ${36+ba},${by+ba}`;
+  const rBrow = `M ${44-ba},${by+ba} Q 51,${by-2+ba} ${58-bo},${by+bo}`;
+
+  // same hair for all three - clean rounded cap
+  const hair = `<path d="M 16 43 Q 16 14 40 13 Q 64 14 64 43 Q 57 22 40 23 Q 23 22 16 43 Z" fill="${c.hair}"/>`;
+
+  // glasses (Isaac only)
+  const glasses = c.glasses ? `
+    <rect x="21" y="40" width="15" height="11" rx="3" fill="none" stroke="#333" stroke-width="1.5"/>
+    <rect x="44" y="40" width="15" height="11" rx="3" fill="none" stroke="#333" stroke-width="1.5"/>
+    <line x1="36" y1="45" x2="44" y2="45" stroke="#333" stroke-width="1.5"/>
+    <line x1="21" y1="45" x2="17" y2="46" stroke="#333" stroke-width="1.5"/>
+    <line x1="59" y1="45" x2="63" y2="46" stroke="#333" stroke-width="1.5"/>
+  ` : '';
+
+  // eyelids (skin-coloured rect over top of eyes for tired/sleepy)
+  const eyeTop = 44 - e.ey;
+  const lLid = e.lid > 0 ? `<rect x="25" y="${eyeTop}" width="12" height="${e.lid}" fill="${c.skin}"/>` : '';
+  const rLid = e.lid > 0 ? `<rect x="43" y="${eyeTop}" width="12" height="${e.lid}" fill="${c.skin}"/>` : '';
+
+  // extras: sweat, zzz, sparkle
+  let extra = '';
+  if (expr === 'overloaded') {
+    extra = `<ellipse cx="64" cy="40" rx="2.5" ry="3.5" fill="#88CCEE" opacity="0.8"/>
+             <ellipse cx="66" cy="49" rx="2" ry="3" fill="#88CCEE" opacity="0.6"/>`;
+  } else if (expr === 'crashed') {
+    extra = `<text x="60" y="29" font-size="8" fill="${c.accent}" font-family="system-ui" opacity="0.7">z</text>
+             <text x="64" y="21" font-size="10" fill="${c.accent}" font-family="system-ui" opacity="0.45">z</text>`;
+  } else if (expr === 'energized') {
+    extra = `<text x="59" y="29" font-size="12" fill="${c.accent}" font-family="system-ui">✦</text>`;
+  } else if (expr === 'focused') {
+    extra = `<text x="60" y="30" font-size="10" fill="${c.accent}" font-family="system-ui" opacity="0.6">...</text>`;
+  }
+
+  return `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:100%">
+  <defs>
+    <clipPath id="cl${cid}L"><ellipse cx="31" cy="44" rx="6" ry="${e.ey}"/></clipPath>
+    <clipPath id="cl${cid}R"><ellipse cx="49" cy="44" rx="6" ry="${e.ey}"/></clipPath>
+  </defs>
+  <circle cx="40" cy="44" r="37" fill="${c.bg}"/>
+  <rect x="33" y="72" width="14" height="10" rx="5" fill="${c.skin}"/>
+  <ellipse cx="40" cy="50" rx="25" ry="28" fill="${c.skin}"/>
+  <ellipse cx="15" cy="50" rx="4" ry="5.5" fill="${c.skin}"/>
+  <ellipse cx="65" cy="50" rx="4" ry="5.5" fill="${c.skin}"/>
+  <ellipse cx="15" cy="50" rx="2.5" ry="3.5" fill="${c.skinSh}" opacity="0.25"/>
+  <ellipse cx="65" cy="50" rx="2.5" ry="3.5" fill="${c.skinSh}" opacity="0.25"/>
+  ${hair}
+  <path d="${lBrow}" fill="none" stroke="${c.hair}" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="${rBrow}" fill="none" stroke="${c.hair}" stroke-width="2.2" stroke-linecap="round"/>
+  <ellipse cx="31" cy="44" rx="6" ry="${e.ey}" fill="white"/>
+  <ellipse cx="49" cy="44" rx="6" ry="${e.ey}" fill="white"/>
+  <circle cx="31" cy="44" r="3" fill="#1A0800" clip-path="url(#cl${cid}L)"/>
+  <circle cx="49" cy="44" r="3" fill="#1A0800" clip-path="url(#cl${cid}R)"/>
+  <circle cx="32.5" cy="42.5" r="1.1" fill="white" clip-path="url(#cl${cid}L)"/>
+  <circle cx="50.5" cy="42.5" r="1.1" fill="white" clip-path="url(#cl${cid}R)"/>
+  ${lLid}${rLid}
+  ${glasses}
+  <ellipse cx="40" cy="53" rx="2" ry="1.2" fill="${c.skinSh}" opacity="0.3"/>
+  <path d="${e.mouth}" fill="none" stroke="#7B3818" stroke-width="2" stroke-linecap="round"/>
+  ${extra}
+</svg>`;
+}
+
+// ==========================================================================
+// BADGE + NARRATIVE HELPERS
+// ==========================================================================
+function badgeFor(key, p) {
+  const cost = p.cost||0, crashAt=p.crashAt||100;
+  const name = key==='i'?'Isaac':key==='y'?'You':'Elijah';
+  if (cost>=crashAt)         return { text:'crashed', cls:'err' };
+  if (p.arousal>=90||p.energy<15) return { text:'overloaded', cls:'err' };
+  if (p.arousal>=80||cost>=crashAt*0.8) return { text:'approaching limit', cls:'warn' };
+  if (p.energy<25)           return { text:'energy critical', cls:'warn' };
+  if (key==='e'&&p.arousal<36) return { text:'understimulated', cls:'warn' };
+  if (p.quality>0.6)         return { text:'in the zone', cls:'ok' };
+  return { text:'within tolerance', cls:'ok' };
+}
+
+function narrativeFor(key, p) {
+  const name = key==='i'?'Isaac':key==='y'?'You':'Elijah';
+  const cost=p.cost||0, crashAt=p.crashAt||100;
+  const isIntro = p.rpe < 0.55;
+  if (cost>=crashAt)  return name+' has hit the wall. The prefrontal override has failed. Solitude is no longer optional - it is physiological necessity.';
+  if (p.energy<15)   return name+' is running on vapour. The tank is empty regardless of willingness or motivation.';
+  if (p.arousal>=90) return name+' is at the ceiling. Every additional sound or social signal costs more than it returns. The pull toward the door is overwhelming.';
+  if (p.arousal>=80) return 'The edges are blurring for '+name+'. Stimulation is arriving faster than it can be processed.';
+  if (p.energy<30)   return name+' is running low. The margin is thin - manageable for now but not for long.';
+  if (!isIntro) {
+    if (p.arousal<36) return name+' is flat. Arousal has fallen below the functional floor - shallow focus, low mood, strong pull toward something interesting.';
+    if (p.arousal>=44&&p.arousal<=75) return name+' is firing on all cylinders. Arousal in the sweet spot, dopamine circuit getting hits. This is the extrovert in natural habitat.';
+    if (p.quality>0.5) return name+' is engaged and producing. Social context has raised arousal to the productive range.';
+    return name+' is functional, drawing energy from the environment as expected.';
+  }
+  if (p.arousal>=45&&p.arousal<=65) return name+' has drifted into the Yerkes-Dodson sweet spot. This is peak analytical mode - deep processing, low distraction, high output ceiling.';
+  if (p.quality>0.6) return name+' is focused. Quiet conditions have allowed the introvert\'s processing depth advantage to surface.';
+  return name+' is at the characteristic introvert baseline - elevated arousal, stable, fully capable of sustained deep work in the right conditions.';
+}
+
+// ==========================================================================
+// RENDER
+// ==========================================================================
+function cl(v,a,b){return Math.max(a,Math.min(b,v));}
+function r1(v){return Math.round(v*10)/10;}
+function r0(v){return Math.round(v);}
+function pct(v,mx){return cl(v/mx*100,0,100);}
+function signed(v){return(v>=0?'+':'')+r1(v);}
+
+function render() {
+  // update each person
+  [['i','isaac'],['y','you'],['e','elijah']].forEach(([k,who])=>{
+    const p=s[k];
+    // face
+    const expr=getExpression(p);
+    document.getElementById(k+'-face').innerHTML=makeFace(who,expr);
+    // badge
+    const b=badgeFor(k,p);
+    const bdg=document.getElementById(k+'-badge');
+    bdg.textContent=b.text; bdg.className='state-badge '+b.cls;
+    // bars
+    const abEl=document.getElementById(k+'-ab');
+    if(abEl){ const col=k==='i'?'ba-i':k==='y'?'ba-y':'ba-e'; abEl.style.width=pct(p.arousal,100)+'%'; abEl.className='bar-fill '+col; }
+    const av=document.getElementById(k+'-av'); if(av) av.textContent=r0(p.arousal);
+    const eb=document.getElementById(k+'-eb'); if(eb) eb.style.width=pct(p.energy,100)+'%';
+    const ev=document.getElementById(k+'-ev'); if(ev) ev.textContent=r0(p.energy);
+    const fb=document.getElementById(k+'-fb'); if(fb) fb.style.width=pct(p.quality,1)+'%';
+    const qv=document.getElementById(k+'-qv'); if(qv) qv.textContent=p.quality>0?r0(p.quality*100)+'%':'-';
+    const cb=document.getElementById(k+'-cb'); if(cb) cb.style.width=pct(p.cost||0,p.crashAt||100)+'%';
+    const cv=document.getElementById(k+'-cv'); if(cv) cv.textContent=r0(p.cost||0);
+    // narrative
+    const nr=document.getElementById(k+'-narrative'); if(nr) nr.textContent=narrativeFor(k,p);
+  });
+  // Elijah below-optimum
+  const belowOpt=s.e.arousal<40;
+  document.getElementById('e-opt').textContent=belowOpt?'yes':'no';
+  document.getElementById('e-ob').style.width=belowOpt?pct(40-s.e.arousal,40)+'%':'0%';
+
+  renderCumulative();
+  checkInsight();
+}
+
+// ==========================================================================
+// INSIGHT ENGINE
+// ==========================================================================
+let lastInsight='';
+function checkInsight(){
+  const i=s.i,y=s.y,e=s.e;
+  let title='',text='';
+  if(i.cost>=i.crashAt*0.9&&lastInsight!=='crash'){
+    title='Isaac is approaching crash'; lastInsight='crash';
+    text='The prefrontal override of natural inhibition is near its limit. Brian Little documented that sustained free-trait performance produces real health consequences - not just fatigue. Mandatory recovery is coming.';
+  } else if(i.arousal>=45&&i.arousal<=65&&i.quality>0.65&&lastInsight!=='sweet'){
+    title='Isaac in the Yerkes-Dodson sweet spot'; lastInsight='sweet';
+    text='Arousal has drifted into the optimal band for complex work. Combined with processing depth (0.88) and low distractibility (0.15), this is the introvert at peak analytical capacity - a state most open-plan offices are designed to prevent.';
+  } else if(e.arousal<34&&lastInsight!=='under'){
+    title='Elijah is understimulated'; lastInsight='under';
+    text='Arousal has fallen below the extrovert\'s functional floor. This is not preference - it is a neurological state where cortical activation is insufficient. Eysenck (1967): extroverts seek stimulation to correct this deficit, not because they dislike being alone.';
+  } else if(i.quality>0&&e.quality>0&&(i.quality-e.quality)>0.22&&lastInsight!=='gap'){
+    title='Introvert cognitive output advantage visible'; lastInsight='gap';
+    text='The quality gap exceeds 22%. Yerkes-Dodson penalty on Elijah\'s low arousal, plus processing depth difference (0.88 vs 0.52), plus sustained attention difference (0.85 vs 0.48) - all three compounding simultaneously. Same task, same effort, different architecture.';
+  } else { return; }
+  document.getElementById('insight-title').textContent=title;
+  document.getElementById('insight-text').textContent=text;
+  const box=document.getElementById('insight-box');
+  box.classList.add('show');
+  setTimeout(()=>box.classList.remove('show'),9000);
+}
+
+// ==========================================================================
+// SPECTRUM SLIDER
+// ==========================================================================
+document.getElementById('you-slider').oninput=function(){
+  const t=parseInt(this.value)/100;
+  s.y.baseline   = Math.round(72-(72-32)*t);
+  s.y.arousal    = s.y.baseline;
+  s.y.energy     = 100; s.y.cost=0; s.y.focus=0; s.y.quality=0;
+  s.y.sens       = parseFloat((0.85-(0.85-0.45)*t).toFixed(2));
+  s.y.rpe        = parseFloat((0.35+(0.78-0.35)*t).toFixed(2));
+  s.y.distract   = parseFloat((0.15+(0.55-0.15)*t).toFixed(2));
+  s.y.procDepth  = parseFloat((0.88-(0.88-0.52)*t).toFixed(2));
+  s.y.sustAttn   = parseFloat((0.85-(0.85-0.48)*t).toFixed(2));
+  s.y.crashAt    = Math.round(80+(120-80)*(1-t));
+  const label=t<0.2?'strongly introverted':t<0.4?'slightly introverted':t<0.6?'ambivert':t<0.8?'slightly extroverted':'strongly extroverted';
+  document.getElementById('you-label').textContent=label;
+  document.getElementById('you-baseline').textContent=s.y.baseline;
+  document.getElementById('you-rpe').textContent=s.y.rpe.toFixed(2);
+  document.getElementById('you-sens').textContent=s.y.sens.toFixed(2);
+  document.getElementById('you-tag').textContent=label;
+  render();
+};
+
+// ==========================================================================
+// SCENARIOS
+// ==========================================================================
+const SCENARIOS=[
+  {id:'standup',  icon:'☀️', title:'Morning standup',  desc:'15-min team check-in',        dur:15,  type:'meeting',  intensity:50},
+  {id:'deepwork', icon:'🧠', title:'Deep work sprint', desc:'90-min solo focus session',    dur:90,  type:'deepwork', complexity:8},
+  {id:'brainstorm',icon:'💡',title:'Brainstorm',       desc:'45-min group ideation',        dur:45,  type:'meeting',  intensity:70},
+  {id:'lunch',    icon:'🍜', title:'Team lunch',       desc:'60-min social lunch',          dur:60,  type:'party',    intensity:50},
+  {id:'interview',icon:'💼', title:'Job interview',    desc:'60-min high-stakes session',   dur:60,  type:'meeting',  intensity:90},
+  {id:'present',  icon:'📊', title:'Presentation',     desc:'30-min presenting to group',   dur:30,  type:'meeting',  intensity:85},
+  {id:'party-m',  icon:'🥂', title:'Casual party',     desc:'90-min low-key gathering',     dur:90,  type:'party',    intensity:50},
+  {id:'party-h',  icon:'🎉', title:'Loud party',       desc:'120-min high-energy event',    dur:120, type:'party',    intensity:85},
+  {id:'date',     icon:'☕', title:'First date',       desc:'60-min 1-on-1 conversation',   dur:60,  type:'party',    intensity:65},
+  {id:'solitude', icon:'📚', title:'Solo reading',     desc:'60-min alone with a book',     dur:60,  type:'solitude'},
+  {id:'gym',      icon:'🏋️', title:'Workout',          desc:'45-min exercise - converges arousal toward sweet spot (55)',dur:45,type:'workout'},
+  {id:'commute',  icon:'🚇', title:'Crowded commute',  desc:'30-min packed train/bus',      dur:30,  type:'party',    intensity:60},
+];
+
+function buildScenarioCards(){
+  const grid=document.getElementById('sc-grid');
+  SCENARIOS.forEach(sc=>{
+    const div=document.createElement('div');
+    div.className='sc-card'; div.draggable=true; div.dataset.scid=sc.id;
+    div.ondragstart=ev=>ev.dataTransfer.setData('scid',sc.id);
+    div.onclick=()=>runScenario(sc);
+    div.innerHTML=`<div class="sc-icon">${sc.icon}</div><div class="sc-title">${sc.title}</div><div class="sc-desc">${sc.desc}</div><div class="sc-dur">${sc.dur} min</div>`;
+    grid.appendChild(div);
+  });
+}
+
+// ==========================================================================
+// RUN SCENARIO
+// ==========================================================================
+function runScenario(sc){
+  const chunks=sc.dur/10;
+  log('-- '+sc.icon+' '+sc.title+' ('+sc.dur+'min) --','info');
+  if(sc.type==='meeting'){
+    const intensity=(sc.intensity||70)/100;
+    ['i','y','e'].forEach(k=>{
+      const p=s[k]; const baseCost=3.5*chunks;
+      const isIntro=p.rpe<0.55;
+      if(isIntro){
+        if((p.cost||0)>=(p.crashAt||100)){log('  '+(k==='i'?'Isaac':'You')+': crashed - cannot perform','err');return;}
+        const ac=chunks*p.sens*0.75*0.9*intensity;
+        const mc=chunks*0.8*8*(1-p.rpe);
+        const ret=p.rpe*chunks*1.5;
+        p.arousal=cl(p.arousal+ac,0,p.ceiling);
+        p.cost=cl((p.cost||0)+mc,0,150);
+        p.energy=cl(p.energy-(baseCost-ret),0,100); p.focus=0;p.quality=0;
+        const nm=k==='i'?'Isaac':'You';
+        log('  '+nm+': arousal+'+r1(ac)+' cost+'+r1(mc)+' energy'+signed(-(baseCost-ret)),(p.cost||0)>=(p.crashAt||100)*0.8?'warn':'info');
+      } else {
+        const ac=chunks*p.sens*0.5*intensity;
+        const ret=p.rpe*chunks*4*intensity;
+        const netE=baseCost-ret;
+        p.arousal=cl(p.arousal+ac,0,p.ceiling);
+        p.energy=cl(p.energy-netE,0,100); p.focus=0;p.quality=0;
+        log('  Elijah: arousal+'+r1(ac)+' energy'+signed(-netE),'info');
+      }
+    });
+    ['i','y','e'].forEach(k=>addCum(k,'comms',sc.dur,0));
+  } else if(sc.type==='deepwork'){
+    const cplx=sc.complexity||7;
+    ['i','y','e'].forEach(k=>{
+      const p=s[k];
+      const shift=p.arousal>55?-Math.max(0,(p.arousal-55)*0.15*chunks):Math.max(0,(45-p.arousal)*0.05*chunks);
+      p.arousal=cl(p.arousal+shift,p.baseline,p.ceiling);
+      const yd=yerkesDodson(p.arousal,cplx);
+      const fd=cl(yd*p.sustAttn*(1-p.distract*0.5),0,1);
+      const ff=cl(fd*(1+chunks*0.03*p.sustAttn),0,1);
+      p.quality=cl(ff*p.procDepth,0,1); p.focus=ff;
+      addCum(k,'deepFocus',sc.dur,p.quality);
+      // extroverts pay extra: base cost + impulse suppression cost + dopamine drought penalty
+      // introverts pay base + distraction overhead only
+      const isIntro = p.rpe < 0.55;
+      const suppressionCost = isIntro ? 0 : chunks * p.rpe * 1.8; // sustained BAS inhibition
+      const droughtPenalty  = isIntro ? 0 : chunks * 1.2;          // no RPE hits = flatness accumulates
+      const cost=chunks*1.8*(1+p.distract*0.5) + suppressionCost + droughtPenalty;
+      p.energy=cl(p.energy-cost,0,100);
+      const nm=k==='i'?'Isaac':k==='y'?'You':'Elijah';
+      log('  '+nm+': arousal:'+r0(p.arousal)+' focus:'+r0(ff*100)+'% quality:'+r0(p.quality*100)+'% energy'+signed(-cost),p.quality>0.6?'ok':'warn');
+    });
+    const iq=s.i.quality, eq=s.e.quality;
+    if(iq-eq>0.2) log('  introvert advantage: +'+r0((iq-eq)*100)+'% quality on this task','ok');
+  } else if(sc.type==='party'){
+    const intensity=(sc.intensity||60)/100;
+    ['i','y','e'].forEach(k=>{
+      const p=s[k]; const baseCost=2.5*chunks;
+      const rise=intensity*p.sens*chunks*1.2;
+      const ret=intensity*p.rpe*chunks*5;
+      const netE=baseCost-ret;
+      p.arousal=cl(p.arousal+rise,0,p.ceiling);
+      p.energy=cl(p.energy-netE,0,100); p.focus=0;p.quality=0;
+      const nm=k==='i'?'Isaac':k==='y'?'You':'Elijah';
+      const over=p.arousal>=90;
+      log('  '+nm+': arousal+'+r1(rise)+' energy'+signed(-netE)+(over?' [OVERLOADED]':''),over?'err':'info');
+    });
+    ['i','y','e'].forEach(k=>addCum(k,'social',sc.dur,0));
+  } else if(sc.type==='solitude'){
+    ['i','y','e'].forEach(k=>{
+      const p=s[k]; const isIntro=p.rpe<0.55;
+      const drop=chunks*6;
+      p.arousal=cl(p.arousal-drop,p.baseline,p.ceiling);
+      if(isIntro){p.cost=cl((p.cost||0)-chunks*5,0,150);}
+      p.energy=cl(p.energy+(isIntro?chunks*4:chunks*0.8),0,100);
+      p.focus=0;p.quality=0;
+      const nm=k==='i'?'Isaac':k==='y'?'You':'Elijah';
+      log('  '+nm+': arousal-'+r1(drop)+' energy+'+(isIntro?r1(chunks*4):r1(chunks*0.8)),isIntro?'ok':'warn');
+    });
+    ['i','y','e'].forEach(k=>addCum(k,'recovery',sc.dur,0));
+  } else if(sc.type==='workout'){
+    // Exercise converges arousal toward the Yerkes-Dodson sweet spot (55)
+    // for introverts (high baseline) it pulls down; for extroverts (low baseline) it pushes up
+    // magnitude proportional to distance from 55, capped at 20 points of movement
+    ['i','y','e'].forEach(k=>{
+      const p=s[k];
+      const dist=55-p.arousal; // positive = below sweet spot, negative = above
+      const move=Math.sign(dist)*Math.min(Math.abs(dist)*0.45,20);
+      const prev=p.arousal;
+      p.arousal=cl(p.arousal+move,p.baseline,p.ceiling);
+      p.energy=cl(p.energy-8,0,100); // modest energy cost for the effort
+      const nm=k==='i'?'Isaac':k==='y'?'You':'Elijah';
+      const dir=move>=0?'up':'down';
+      log('  '+nm+': arousal '+dir+' '+r1(prev)+'->'+r0(p.arousal)+' (converging toward sweet spot 55)','ok');
+    });
+    ['i','y','e'].forEach(k=>addCum(k,'recovery',sc.dur,0));
+  } else if(sc.type==='boost'){
+    ['i','y','e'].forEach(k=>{
+      const p=s[k]; p.arousal=cl(p.arousal+(sc.amount||15),p.baseline,p.ceiling);
+    });
+    log('  all: arousal+'+(sc.amount||15)+' (workout / stimulant)','info');
+  }
+  render();
+}
+
+function yerkesDodson(arousal,complexity){
+  const optimal=55, spread=complexity>6?18:25, dist=Math.abs(arousal-optimal);
+  return parseFloat(Math.exp(-(dist*dist)/(2*spread*spread)).toFixed(3));
+}
+
+// ==========================================================================
+// DAY PLANNER
+// ==========================================================================
+const dayPlan={morning:[],afternoon:[],evening:[]};
+function allowDrop(e){e.preventDefault();}
+function dropScenario(e,slot){
+  e.preventDefault();
+  const sc=SCENARIOS.find(s=>s.id===e.dataTransfer.getData('scid'));
+  if(sc){dayPlan[slot].push(sc);renderDaySlots();}
+}
+function renderDaySlots(){
+  ['morning','afternoon','evening'].forEach(slot=>{
+    const el=document.getElementById('slot-'+slot+'-items');
+    el.innerHTML='';
+    dayPlan[slot].forEach((sc,i)=>{
+      const d=document.createElement('div'); d.className='slot-item';
+      d.innerHTML=sc.icon+' <span>'+sc.title+'</span><span class="slot-rm" onclick="removeFromSlot(\''+slot+'\','+i+')">✕</span>';
+      el.appendChild(d);
+    });
+  });
+}
+function removeFromSlot(slot,i){dayPlan[slot].splice(i,1);renderDaySlots();}
+function clearDay(){['morning','afternoon','evening'].forEach(s=>dayPlan[s]=[]);renderDaySlots();}
+function runDay(){
+  resetAll(false);
+  log('=== running full day ===','info');
+  ['morning','afternoon','evening'].forEach(slot=>{
+    if(dayPlan[slot].length===0)return;
+    log('-- '+slot+' --','info');
+    dayPlan[slot].forEach(sc=>runScenario(sc));
+  });
+}
+function loadPresetDay(type){
+  clearDay();
+  const f=id=>SCENARIOS.find(s=>s.id===id);
+  if(type==='office'){
+    dayPlan.morning=[f('standup'),f('deepwork')];
+    dayPlan.afternoon=[f('brainstorm'),f('lunch')];
+    dayPlan.evening=[f('party-m')];
+  } else if(type==='remote'){
+    dayPlan.morning=[f('deepwork')];
+    dayPlan.afternoon=[f('standup'),f('deepwork')];
+    dayPlan.evening=[f('solitude')];
+  } else if(type==='social'){
+    dayPlan.morning=[f('brainstorm'),f('present')];
+    dayPlan.afternoon=[f('interview'),f('lunch')];
+    dayPlan.evening=[f('party-h')];
+  }
+  renderDaySlots();
+  log('loaded preset: '+type,'info');
+}
+
+// ==========================================================================
+// MANUAL CONTROLS
+// ==========================================================================
+function doDeepWork(){
+  runScenario({id:'dw-m',icon:'🧠',title:'deep work',
+    dur:parseInt(document.getElementById('dw-dur').value),
+    type:'deepwork',complexity:parseInt(document.getElementById('dw-cplx').value)});
+}
+function samBoostsArousal(){
+  const b=cl(55-s.e.arousal,0,30);
+  s.e.arousal=cl(s.e.arousal+b,s.e.baseline,s.e.ceiling);
+  log('Elijah boosts arousal +'+r1(b)+' -> '+r0(s.e.arousal)+' (coffee/music/movement)','info');
+  render();
+}
+function party(mins){
+  runScenario({id:'p-m',icon:'🎉',title:'party '+mins+'min',dur:mins,type:'party',
+    intensity:parseInt(document.getElementById('party-int').value)});
+}
+function doMeeting(){
+  const dur=parseInt(document.getElementById('meet-dur').value);
+  runScenario({id:'meet-m',icon:'📋',title:'meeting '+dur+'min',dur,type:'meeting',intensity:70});
+}
+function doReward(){
+  const mag=parseFloat(document.getElementById('rew-mag').value);
+  const names={i:'Isaac',y:'You',e:'Elijah'};
+  ['i','y','e'].forEach(k=>{
+    const p=s[k]; const rpe=mag*p.rpe;
+    p.energy=cl(p.energy+rpe*10,0,100);
+    p.arousal=cl(p.arousal+rpe*2,0,p.ceiling);
+  });
+  log('unexpected reward ('+mag.toFixed(1)+') | Isaac +'+r0(mag*s.i.rpe*10)+' You +'+r0(mag*s.y.rpe*10)+' Elijah +'+r0(mag*s.e.rpe*10),'ok');
+  render();
+}
+function doApproval(){
+  const mag=parseFloat(document.getElementById('rew-mag').value);
+  ['i','y','e'].forEach(k=>{
+    const p=s[k]; const sig=mag*p.rpe*1.1;
+    p.energy=cl(p.energy+sig*15,0,100);
+    p.arousal=cl(p.arousal+sig*3,0,p.ceiling);
+  });
+  log('social approval ('+mag.toFixed(1)+') | Isaac +'+r0(mag*s.i.rpe*1.1*15)+' You +'+r0(mag*s.y.rpe*1.1*15)+' Elijah +'+r0(mag*s.e.rpe*1.1*15),'ok');
+  render();
+}
+function isaacRecovers(){
+  const prev=s.i.arousal;
+  s.i.arousal=cl(s.i.arousal-54,s.i.baseline,s.i.ceiling);
+  s.i.cost=cl(s.i.cost-45,0,150); s.i.energy=cl(s.i.energy+36,0,100);
+  s.i.focus=0;s.i.quality=0;
+  addCum('i','recovery',90,0);
+  log('Isaac 90min solitude | arousal '+r0(prev)+'->'+r0(s.i.arousal)+' cost-45 energy+36','ok');
+  render();
+}
+function youRecovers(){
+  const isIntro=s.y.rpe<0.55;
+  if(isIntro){
+    const prev=s.y.arousal;
+    s.y.arousal=cl(s.y.arousal-45,s.y.baseline,s.y.ceiling);
+    s.y.cost=cl(s.y.cost-35,0,150); s.y.energy=cl(s.y.energy+28,0,100);
+    log('You recover alone | arousal '+r0(prev)+'->'+r0(s.y.arousal),'ok');
+  } else {
+    const ret=0.4*s.y.rpe*6*7, cost=2.5*6, net=ret-cost;
+    s.y.energy=cl(s.y.energy+net,0,100);
+    s.y.arousal=cl(s.y.arousal+0.4*s.y.sens*6*0.8,0,s.y.ceiling);
+    log('You recover via socializing | energy'+signed(net),'ok');
+  }
+  s.y.focus=0;s.y.quality=0;
+  addCum('y','recovery',75,0);
+  render();
+}
+function samSocialRecharge(){
+  // RPE response scales with depletion depth:
+  // the further below optimum and the lower the energy, the stronger the reward circuit
+  // responds to social input - contrast effect of a starved dopamine system
+  const arousalDeficit = Math.max(0, 55 - s.e.arousal);   // how far below sweet spot
+  const energyDeficit  = Math.max(0, 70 - s.e.energy);    // how depleted
+  const depletionBoost = 1 + (arousalDeficit / 55) * 0.8 + (energyDeficit / 70) * 0.5;
+
+  const intensity=0.5, chunks=6, baseCost=2.5*chunks;
+  const socialReturn = intensity * s.e.rpe * chunks * 7 * depletionBoost;
+  const net = socialReturn - baseCost;
+  const arousalGain = Math.min(intensity * s.e.sens * chunks * 0.8 * depletionBoost, 25);
+
+  s.e.energy  = cl(s.e.energy  + net,        0, 100);
+  s.e.arousal = cl(s.e.arousal + arousalGain, s.e.baseline, s.e.ceiling);
+  addCum('e','social',60,0);
+  log('Elijah 60min casual socializing | depletion boost x'+r1(depletionBoost)+' | energy'+signed(net)+' arousal+'+r1(arousalGain),'ok');
+  render();
+}
+function samRests(){
+  const prev=s.e.arousal;
+  s.e.arousal=cl(s.e.arousal-18,s.e.baseline,s.e.ceiling);
+  s.e.energy=cl(s.e.energy+5,0,100); s.e.focus=0;s.e.quality=0;
+  addCum('e','recovery',60,0);
+  log('Elijah 60min silence | arousal '+r0(prev)+'->'+r0(s.e.arousal)+' energy+5 (no RPE hits)','warn');
+  render();
+}
+function resetAll(doLog=true){
+  s.i.arousal=72;s.i.energy=100;s.i.cost=0;s.i.focus=0;s.i.quality=0;
+  s.y.arousal=s.y.baseline;s.y.energy=100;s.y.cost=0;s.y.focus=0;s.y.quality=0;
+  s.e.arousal=32;s.e.energy=100;s.e.focus=0;s.e.quality=0;
+  ['i','y','e'].forEach(k=>{ cum[k]={deepFocus:0,comms:0,social:0,recovery:0,qTotal:0,qCount:0}; });
+  lastInsight='';
+  if(doLog)log('reset','info');
+  render();
+}
+
+// slider wiring
+['dw-dur','dw-cplx','party-int','meet-dur'].forEach(id=>{
+  document.getElementById(id).oninput=function(){document.getElementById(id+'-v').textContent=this.value;};
+});
+document.getElementById('rew-mag').oninput=function(){document.getElementById('rew-mag-v').textContent=parseFloat(this.value).toFixed(1);};
+
+function log(msg,cls){
+  const el=document.getElementById('log');
+  const d=document.createElement('div');
+  d.className='log-entry '+(cls||'');
+  d.textContent=msg;
+  el.prepend(d);
+}
+
+function toggleControls(){
+  const card=document.getElementById('controls-card');
+  const arrow=document.getElementById('ctrl-arrow');
+  const visible=card.style.display!=='none';
+  card.style.display=visible?'none':'block';
+  arrow.textContent=visible?'▸':'▾';
+}
+
+buildScenarioCards();
+render();
+</script>
+</body>
+</html>
