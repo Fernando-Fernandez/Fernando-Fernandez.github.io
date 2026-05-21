@@ -291,6 +291,16 @@ ORDER BY RefMetadataComponentName</code></pre>
 FROM ApexClass
 ORDER BY LengthWithoutComments DESC</code></pre>
   </div>
+
+  <div class="card">
+    <h3>Package Install Requests</h3>
+    <div class="desc">SecurityType = 'Full' means the package was installed for all users.</div>
+<pre><code>SELECT Id, ApexCompileType, ProfileMappings,
+       SecurityType, CreatedDate,
+       PackageInstallSource,
+       SubscriberPackageVersionKey, UpgradeType
+FROM PackageInstallRequest</code></pre>
+  </div>
 </div>
 
 <h2>Files and Content</h2>
