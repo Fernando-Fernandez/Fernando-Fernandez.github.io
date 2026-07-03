@@ -71,6 +71,7 @@ export default class Parser {
     while (
       this.peek() && (
         this.peek().token === '=' ||
+        this.peek().token === '==' ||
         this.peek().token === '!=' ||
         this.peek().token === '<>' ||
         this.peek().token === '<' ||
@@ -79,7 +80,8 @@ export default class Parser {
         this.peek().token === '>='
       )
     ) {
-      const operator = this.consume().token;
+      const raw = this.consume().token;
+      const operator = raw === '==' ? '=' : raw;
       const right = this.parseTerm();
       node = { type: OPERATOR_TYPE, operator, left: node, right };
     }
@@ -99,13 +101,41 @@ export default class Parser {
 
   // Multiply/Divide
   parseFactor() {
-    let node = this.parsePrimary();
+    let node = this.parseExponent();
     while (this.peek() && (this.peek().token === '*' || this.peek().token === '/')) {
       const operator = this.consume().token;
-      const right = this.parsePrimary();
+      const right = this.parseExponent();
       node = { type: OPERATOR_TYPE, operator, left: node, right };
     }
     return node;
+  }
+
+  // Exponentiation (right-associative), binds tighter than * and /
+  parseExponent() {
+    const base = this.parseUnary();
+    if (this.peek() && this.peek().token === '^') {
+      this.consume();
+      const right = this.parseExponent();
+      return { type: OPERATOR_TYPE, operator: '^', left: base, right };
+    }
+    return base;
+  }
+
+  // Unary +/- (e.g. -1, -Amount, -(a + b))
+  parseUnary() {
+    const token = this.peek();
+    if (token && token.tokenType === 'ADDITIVE_OPERATOR') {
+      const operator = this.consume().token;
+      const operand = this.parseUnary();
+      if (operator === '+') return operand;
+      if (operand.type === LITERAL_TYPE && typeof operand.value === 'number') {
+        return { type: LITERAL_TYPE, value: -operand.value };
+      }
+      // Represent -x as (null - x); the engine evaluates the missing left
+      // side as 0 and the `unary` flag makes it rebuild/display as -x
+      return { type: OPERATOR_TYPE, operator: '-', unary: true, left: null, right: operand };
+    }
+    return this.parsePrimary();
   }
 
   // Literals, identifiers (fields), function calls, parenthesized expressions
@@ -118,6 +148,9 @@ export default class Parser {
     }
     if (token.tokenType === 'STRING' || token.tokenType === 'DOUBLE_QUOTE_STRING') {
       return { type: LITERAL_TYPE, value: this.consume().token.slice(1, -1) };
+    }
+    if (token.tokenType === 'BOOLEAN') {
+      return { type: LITERAL_TYPE, value: this.consume().token.toUpperCase() === 'TRUE' };
     }
     if (token.tokenType === 'NULL') {
       this.consume();

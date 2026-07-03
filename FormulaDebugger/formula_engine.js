@@ -48,6 +48,7 @@ export default class FormulaEngine {
   static inferLiteralResultType(value) {
     if (value === null || value === undefined) return this.RESULT_TYPE.Unknown;
     if (typeof value === 'number') return this.RESULT_TYPE.Number;
+    if (typeof value === 'boolean') return this.RESULT_TYPE.Boolean;
     if (typeof value === 'string') return this.RESULT_TYPE.Text;
     if (this.isDate(value)) return this.RESULT_TYPE.DateTime;
     return this.RESULT_TYPE.Unknown;
@@ -103,7 +104,7 @@ export default class FormulaEngine {
       if (!node) return;
       if (node.type === OPERATOR_TYPE) {
         const op = node.operator;
-        if (op === '+' || op === '-' || op === '*' || op === '/') {
+        if (op === '+' || op === '-' || op === '*' || op === '/' || op === '^') {
           const lt = node.left && node.left.resultType;
           const rt = node.right && node.right.resultType;
           if (isKnown(lt) && isKnown(rt)) {
@@ -122,6 +123,7 @@ export default class FormulaEngine {
                 break;
               case '*':
               case '/':
+              case '^':
                 ok = (lt === FormulaEngine.RESULT_TYPE.Number && rt === FormulaEngine.RESULT_TYPE.Number);
                 break;
             }
@@ -215,6 +217,7 @@ export default class FormulaEngine {
             }
             case '*':
             case '/':
+            case '^':
               node.resultType = this.RESULT_TYPE.Number;
               break;
             default:
@@ -324,6 +327,10 @@ export default class FormulaEngine {
         return `${ast.name}(${args})`;
       }
       case OPERATOR_TYPE: {
+        if (ast.unary) {
+          const operand = this.rebuild(ast.right);
+          return ast.right && ast.right.type === OPERATOR_TYPE ? `-(${operand})` : `-${operand}`;
+        }
         const left = this.rebuild(ast.left);
         const right = this.rebuild(ast.right);
         return `${left} ${ast.operator} ${right}`;
@@ -332,6 +339,7 @@ export default class FormulaEngine {
         return ast.name;
       case LITERAL_TYPE:
         if (ast.value === null) return 'null';
+        if (typeof ast.value === 'boolean') return ast.value ? 'TRUE' : 'FALSE';
         if (typeof ast.value === 'string') return `"${ast.value}"`;
         return ast.value.toString();
       default:
@@ -412,10 +420,40 @@ export default class FormulaEngine {
     if (!ast) return null;
     switch (ast.type) {
       case 'Function': {
+        const name = (ast.name || '').toUpperCase();
+        // Lazily-evaluated functions: only the branch actually taken runs,
+        // so guarded expressions like IF(x = 0, 0, 1 / x) don't throw
+        const evalArg = (i) => this.calculate(ast.arguments[i], variables);
+        switch (name) {
+          case 'IF': {
+            if (ast.arguments.length !== 3) throw new Error('IF requires exactly three arguments: condition, value_if_true, value_if_false');
+            return evalArg(0) ? evalArg(1) : evalArg(2);
+          }
+          case 'AND': {
+            if (ast.arguments.length < 2) throw new Error('AND requires at least two arguments');
+            for (let i = 0; i < ast.arguments.length; i++) {
+              if (!Boolean(evalArg(i))) return false;
+            }
+            return true;
+          }
+          case 'OR': {
+            if (ast.arguments.length < 2) throw new Error('OR requires at least two arguments');
+            for (let i = 0; i < ast.arguments.length; i++) {
+              if (Boolean(evalArg(i))) return true;
+            }
+            return false;
+          }
+          case 'CASE': {
+            if (ast.arguments.length < 4 || ast.arguments.length % 2 !== 0) throw new Error('CASE requires an expression, value/result pairs, and a default result');
+            const expr = evalArg(0);
+            for (let i = 1; i < ast.arguments.length - 1; i += 2) {
+              if (evalArg(i) === expr) return evalArg(i + 1);
+            }
+            return evalArg(ast.arguments.length - 1);
+          }
+        }
         const args = ast.arguments.map(arg => this.calculate(arg, variables));
-        switch ((ast.name || '').toUpperCase()) {
-          case 'IF':
-            return args[0] ? args[1] : args[2];
+        switch (name) {
           case 'CONTAINS': {
             const text = String(args[0] || '');
             const substring = String(args[1] || '');
@@ -765,17 +803,6 @@ export default class FormulaEngine {
             }
             return max === -Infinity ? 0 : max;
           }
-          case 'CASE': {
-            const expr = args[0];
-            for (let i = 1; i < args.length - 1; i += 2) {
-              if (args[i] === expr) return args[i + 1];
-            }
-            return args[args.length - 1];
-          }
-          case 'AND':
-            return Boolean(args[0]) && Boolean(args[1]);
-          case 'OR':
-            return Boolean(args[0]) || Boolean(args[1]);
           case 'NOT': {
             if (args.length !== 1) throw new Error('NOT requires exactly one argument');
             return !Boolean(args[0]);
@@ -955,6 +982,13 @@ export default class FormulaEngine {
         }
       }
       case OPERATOR_TYPE: {
+        // Short-circuit logical operators: don't evaluate the right side unless needed
+        if (ast.operator === '&&') {
+          return Boolean(this.calculate(ast.left, variables)) && Boolean(this.calculate(ast.right, variables));
+        }
+        if (ast.operator === '||') {
+          return Boolean(this.calculate(ast.left, variables)) || Boolean(this.calculate(ast.right, variables));
+        }
         const left = this.calculate(ast.left, variables);
         const right = this.calculate(ast.right, variables);
         const leftDate = this.toDate(left);
@@ -1007,10 +1041,8 @@ export default class FormulaEngine {
             if (divisor === 0) throw new Error('Division by zero');
             return (parseFloat(left) || 0) / divisor;
           }
-          case '&&':
-            return Boolean(left) && Boolean(right);
-          case '||':
-            return Boolean(left) || Boolean(right);
+          case '^':
+            return Math.pow(parseFloat(left) || 0, parseFloat(right) || 0);
           case '=':
             if (leftDate && rightDate) return leftDate.getTime() === rightDate.getTime();
             return left === right;
