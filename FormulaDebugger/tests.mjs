@@ -4,6 +4,8 @@ import FormulaEngine from './formula_engine.js';
 import FormulaUI from './formula_ui.js';
 import { explainFormula } from './formula_explain.js';
 import { generateScenarios } from './formula_matrix.js';
+import { PENDING_FUNCTIONS } from './pending_functions.js';
+import fs from 'node:fs';
 
 let passed = 0;
 let failed = 0;
@@ -52,6 +54,12 @@ check('zero-width characters stay inside identifiers', () => {
 });
 check('soft hyphen debris does not split identifiers', () =>
   eq(evalFormula('ISPICKVAL(Ra\u00ADting, "Hot")', { Rating: 'Warm' }), false));
+check('pending functions behave like variables with defaults', () => {
+  const ast = FormulaEngine.parse('GETSESSIONID() & "!"');
+  eq(FormulaEngine.extractVariables(ast), ['GETSESSIONID']);
+  eq(evalFormula('GETSESSIONID() & "!"', { GETSESSIONID: 'abc' }), 'abc!');
+  eq(evalFormula('GETSESSIONID() & "!"'), 'GETSESSIONID_VALUE!');
+});
 
 // --- Logical operators && and || ---
 check('&& evaluates', () => {
@@ -332,7 +340,25 @@ check('flags AND below its minimum', () => {
   eq(arityErrors('AND(1 = 1)')[0].message, 'AND expects at least 2 arguments, but got 1');
 });
 check('flags unsupported functions', () => {
-  eq(arityErrors('VLOOKUP(A, B, C)')[0].message, 'VLOOKUP is not supported by this tool');
+  eq(arityErrors('MADEFUNC(A, B)')[0].message, 'MADEFUNC is not supported by this tool');
+});
+check('pending functions are exempt from unsupported errors', () => {
+  eq(arityErrors('VLOOKUP(A, B, C)').length, 0);
+});
+check('pendingFunctions.txt matches exported pending function list', () => {
+  const text = fs.readFileSync(new URL('./pendingFunctions.txt', import.meta.url), 'utf8');
+  const names = [];
+  let started = false;
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!started) {
+      if (trimmed.startsWith('Not implemented')) started = true;
+      continue;
+    }
+    if (!trimmed) break;
+    names.push(trimmed);
+  }
+  eq(names, PENDING_FUNCTIONS);
 });
 check('finds errors nested inside expressions', () => {
   const errs = arityErrors("IF(LEN(Name, 2) > 0, TRIM(), 'x')");

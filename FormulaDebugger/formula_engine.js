@@ -1,4 +1,10 @@
 import Parser, { OPERATOR_TYPE, LITERAL_TYPE } from './parser.js';
+import {
+  isPendingFunction,
+  pendingFunctionVariableName,
+  pendingFunctionDefaultValue,
+  pendingFunctionVariableValue,
+} from './pending_functions.js';
 
 export default class FormulaEngine {
   static RESULT_TYPE = {
@@ -29,6 +35,9 @@ export default class FormulaEngine {
           if ((node.name || '').toUpperCase() === 'NOW') variables.add('NOW()');
           if ((node.name || '').toUpperCase() === 'TODAY') variables.add('TODAY()');
           if ((node.name || '').toUpperCase() === 'TIMENOW') variables.add('TIMENOW()');
+          if (isPendingFunction(node.name)) {
+            variables.add(pendingFunctionVariableName(node.name));
+          }
           (node.arguments || []).forEach(traverse);
           break;
         case OPERATOR_TYPE:
@@ -225,6 +234,10 @@ export default class FormulaEngine {
       if (!node) return;
       if (node.type === 'Function') {
         const name = (node.name || '').toUpperCase();
+        if (isPendingFunction(name)) {
+          (node.arguments || []).forEach(walk);
+          return;
+        }
         const spec = FormulaEngine.FUNCTION_ARITY[name];
         const count = (node.arguments || []).length;
         if (!spec) {
@@ -505,6 +518,10 @@ export default class FormulaEngine {
         }
         case 'Function': {
           const name = node.name ? node.name.toUpperCase() : '';
+          if (isPendingFunction(name)) {
+            node.resultType = this.RESULT_TYPE.Unknown;
+            return node.resultType;
+          }
           const argTypes = (node.arguments || []).map(a => infer(a));
           switch (name) {
             case 'IF':
@@ -805,6 +822,9 @@ export default class FormulaEngine {
     switch (ast.type) {
       case 'Function': {
         const name = (ast.name || '').toUpperCase();
+        if (isPendingFunction(name)) {
+          return pendingFunctionVariableValue(name, variables);
+        }
         // Lazily-evaluated functions: only the branch actually taken runs,
         // so guarded expressions like IF(x = 0, 0, 1 / x) don't throw
         const evalArg = (i) => this.calculate(ast.arguments[i], variables, cache);

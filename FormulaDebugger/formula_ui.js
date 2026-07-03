@@ -2,6 +2,7 @@ import FormulaEngine from './formula_engine.js';
 import { openSvgDiagram as openSvgDiagramWindow } from './formula_svg.js';
 import { explainFormula } from './formula_explain.js';
 import { generateScenarios } from './formula_matrix.js';
+import { isPendingFunction, pendingFunctionDefaultValue } from './pending_functions.js';
 
 // CSS style constants
 const STYLE_ERROR_BOX = 'color: red; padding: 10px; background: #ffe8e8; border: 1px solid #f44336; border-radius: 4px;';
