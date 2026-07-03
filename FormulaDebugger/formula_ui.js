@@ -11,6 +11,7 @@ const STYLE_FIELD_LABEL = 'display: inline-block; width: 120px; font-weight: bol
 const STYLE_FIELD_INPUT = 'flex: 1; padding: 4px 8px; border: 1px solid #ccc; border-radius: 3px;';
 const STYLE_TYPE_SELECT = 'padding: 4px 6px; border: 1px solid #ccc; border-radius: 3px;';
 const STYLE_NOW_HELPER = 'font-size: 11px; color: #666;';
+const STYLE_NULL_LABEL = 'display: flex; align-items: center; gap: 4px; font-size: 12px; color: #57606a; white-space: nowrap;';
 const STYLE_PRIMARY_BUTTON = 'padding: 8px 16px; background: #007cba; color: white; border: none; border-radius: 4px; cursor: pointer;';
 const STYLE_SECONDARY_BUTTON = 'padding: 8px 16px; background: #555; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 8px;';
 const STYLE_RESULT_BOX = 'margin: 10px 0; padding: 10px; background: #e8f5e8; border: 1px solid #4caf50; border-radius: 4px; display: none;';
@@ -219,6 +220,8 @@ export default class FormulaUI {
         return local.toISOString().slice(0, 16);
       };
 
+      const savedValues = FormulaUI.loadFieldValues();
+
       variables.forEach(variable => {
         const fieldDiv = doc.createElement('div');
         fieldDiv.style.cssText = STYLE_FIELD_ROW;
@@ -264,9 +267,8 @@ export default class FormulaUI {
             op.value = o.v; op.textContent = o.t;
             typeSel.appendChild(op);
           }
-          // When user selects Date/DateTime, switch input type and set default
-          typeSel.addEventListener('change', () => {
-            const sel = typeSel.value;
+          // Switch the input widget to match the selected type
+          const applyInputType = (sel) => {
             if (sel === 'Date') {
               input.type = 'date';
               input.placeholder = 'Select date';
@@ -282,8 +284,34 @@ export default class FormulaUI {
               input.type = 'text';
               input.placeholder = `Enter value for ${variable}`;
             }
-          });
+          };
+          typeSel.addEventListener('change', () => applyInputType(typeSel.value));
           fieldDiv.appendChild(typeSel);
+
+          // Null checkbox: test formulas against a true null (not empty string)
+          const nullWrap = doc.createElement('label');
+          nullWrap.style.cssText = STYLE_NULL_LABEL;
+          const nullChk = doc.createElement('input');
+          nullChk.type = 'checkbox';
+          nullChk.id = `null-${variable}`;
+          nullChk.addEventListener('change', () => { input.disabled = nullChk.checked; });
+          nullWrap.appendChild(nullChk);
+          nullWrap.appendChild(doc.createTextNode('null'));
+          fieldDiv.appendChild(nullWrap);
+
+          // Restore the last-used value/type/null state for this field
+          const saved = savedValues[variable];
+          if (saved) {
+            if (saved.type && saved.type !== 'Auto') {
+              typeSel.value = saved.type;
+              applyInputType(saved.type);
+            }
+            if (typeof saved.value === 'string' && saved.value !== '') input.value = saved.value;
+            if (saved.isNull) {
+              nullChk.checked = true;
+              input.disabled = true;
+            }
+          }
         }
 
         if (variable === 'NOW()') {
@@ -308,7 +336,11 @@ export default class FormulaUI {
       calculateBtn.textContent = 'Calculate Formula';
       calculateBtn.type = 'button';
       calculateBtn.style.cssText = STYLE_PRIMARY_BUTTON;
-      calculateBtn.addEventListener('click', async () => await this.calculateAndDisplay(ast, doc));
+      calculateBtn.addEventListener('click', async () => {
+        // Remember values so re-analyzing (or reloading) doesn't wipe them
+        FormulaUI.saveFieldValues({ ...FormulaUI.loadFieldValues(), ...FormulaUI.collectFieldStates(ast, doc) });
+        await this.calculateAndDisplay(ast, doc);
+      });
       container.appendChild(calculateBtn);
 
       const mermaidBtn = doc.createElement('button');
@@ -447,8 +479,13 @@ export default class FormulaUI {
     const values = {};
     const types = {};
     variables.forEach(variable => {
-      const input = doc.getElementById(`var-${variable}`);
-      values[variable] = input ? (input.value || '') : '';
+      const nullChk = doc.getElementById(`null-${variable}`);
+      if (nullChk && nullChk.checked) {
+        values[variable] = null;
+      } else {
+        const input = doc.getElementById(`var-${variable}`);
+        values[variable] = input ? (input.value || '') : '';
+      }
       const typeSel = doc.getElementById(`type-${variable}`);
       const t = typeSel ? typeSel.value : (variable === 'NOW()' ? 'DateTime' : (variable === 'TODAY()' ? 'Date' : 'Auto'));
       types[variable] = t;
@@ -456,10 +493,51 @@ export default class FormulaUI {
     return { values, types };
   }
 
+  // localStorage persistence for field values/types/null flags, keyed by field name
+  static FIELD_VALUES_KEY = 'fd.fieldValues';
+
+  static loadFieldValues() {
+    try {
+      return JSON.parse(localStorage.getItem(FormulaUI.FIELD_VALUES_KEY) || '{}') || {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static saveFieldValues(map) {
+    try {
+      localStorage.setItem(FormulaUI.FIELD_VALUES_KEY, JSON.stringify(map || {}));
+    } catch (_) {}
+  }
+
+  // Snapshot the current state of the rendered field inputs
+  static collectFieldStates(ast, doc) {
+    const out = {};
+    let variables;
+    try { variables = FormulaEngine.extractVariables(ast); } catch (_) { return out; }
+    for (const variable of variables) {
+      if (variable.endsWith('()')) continue; // NOW()/TODAY() etc. default to current time
+      const input = doc.getElementById(`var-${variable}`);
+      if (!input) continue;
+      const typeSel = doc.getElementById(`type-${variable}`);
+      const nullChk = doc.getElementById(`null-${variable}`);
+      out[variable] = {
+        value: input.value || '',
+        type: typeSel ? typeSel.value : 'Auto',
+        isNull: !!(nullChk && nullChk.checked),
+      };
+    }
+    return out;
+  }
+
   static coerceVariables(values, types) {
     const out = {};
     for (const [name, raw] of Object.entries(values || {})) {
       const t = (types && types[name]) || 'Auto';
+      if (raw === null) {
+        out[name] = null; // null checkbox: pass a true null through untouched
+        continue;
+      }
       if (name === 'NOW()' || name === 'TODAY()') {
         out[name] = raw; // special handling occurs in FormulaEngine
         continue;
@@ -527,6 +605,39 @@ FormulaUI.buildAstTree = function(doc, node, options = {}) {
     return box;
   };
 
+  // Determine which children were never evaluated (untaken IF/CASE branches,
+  // short-circuited && / || right sides) so they can be dimmed in the tree
+  const getUntakenChildren = (parentNode) => {
+    const untaken = new Set();
+    if (!includeResults || !parentNode) return untaken;
+    try {
+      if (parentNode.type === 'Function') {
+        const name = (parentNode.name || '').toUpperCase();
+        const args = parentNode.arguments || [];
+        if (name === 'IF' && args.length === 3) {
+          const cond = FormulaEngine.calculate(args[0], variables, cache);
+          untaken.add(cond ? args[2] : args[1]);
+        } else if (name === 'CASE' && args.length >= 4 && args.length % 2 === 0) {
+          const expr = FormulaEngine.calculate(args[0], variables, cache);
+          let matched = -1;
+          for (let i = 1; i < args.length - 1; i += 2) {
+            if (FormulaEngine.calculate(args[i], variables, cache) === expr) { matched = i + 1; break; }
+          }
+          for (let i = 2; i < args.length - 1; i += 2) {
+            if (i !== matched) untaken.add(args[i]);
+          }
+          if (matched !== -1) untaken.add(args[args.length - 1]);
+        }
+      } else if (parentNode.type === 'Operator' && (parentNode.operator === '&&' || parentNode.operator === '||')) {
+        const leftTrue = Boolean(FormulaEngine.calculate(parentNode.left, variables, cache));
+        if ((parentNode.operator === '&&' && !leftTrue) || (parentNode.operator === '||' && leftTrue)) {
+          untaken.add(parentNode.right);
+        }
+      }
+    } catch (_) {}
+    return untaken;
+  };
+
   // Build a children table where each child is a separate row (TR)
   // and each row has two columns: [child node][child's nested children table]
   const buildChildrenTable = (parentNode) => {
@@ -537,11 +648,17 @@ FormulaUI.buildAstTree = function(doc, node, options = {}) {
     kids = kids.filter(k => !isValueNode(k));
     if (kids.length === 0) return null;
 
+    const untaken = getUntakenChildren(parentNode);
+
     const tbl = doc.createElement('table');
     tbl.style.cssText = STYLE_TREE_CHILD_TABLE;
 
     for (const k of kids) {
       const row = doc.createElement('tr');
+      if (untaken.has(k)) {
+        row.style.opacity = '0.45';
+        row.title = 'Branch not taken with these values';
+      }
 
       const nodeCell = doc.createElement('td');
       nodeCell.style.cssText = STYLE_TREE_TD;

@@ -1,6 +1,7 @@
 // Unit tests for the formula tokenizer/parser/engine.
 // Run with: node tests.mjs
 import FormulaEngine from './formula_engine.js';
+import FormulaUI from './formula_ui.js';
 
 let passed = 0;
 let failed = 0;
@@ -206,6 +207,18 @@ check('calculate accepts a per-node memoization cache', () => {
 });
 check('calculate without a cache is unchanged', () =>
   eq(FormulaEngine.calculate(FormulaEngine.parse('2 + 3')), 5));
+
+// --- Null field values (null checkbox support) ---
+check('coerceVariables passes null through regardless of type', () => {
+  const out = FormulaUI.coerceVariables({ A: null, B: '5' }, { A: 'Text', B: 'Number' });
+  eq(out.A, null);
+  eq(out.B, 5);
+});
+check('null field values flow through NULLVALUE and ISNULL', () => {
+  eq(evalFormula('NULLVALUE(X, 7)', { X: null }), 7);
+  eq(evalFormula('ISNULL(X)', { X: null }), true);
+  eq(evalFormula('ISBLANK(X)', { X: null }), true);
+});
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

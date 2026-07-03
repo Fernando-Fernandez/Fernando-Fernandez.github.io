@@ -18,6 +18,17 @@ import FormulaEngine from './formula_engine.js';
       const fromUrl = params.get('formula') ?? params.get('f');
       if (fromUrl && fromUrl.trim()) {
         document.getElementById('CalculatedFormula').value = fromUrl;
+        // Shared field values: merge into local storage so the rendered
+        // inputs pick them up and the scenario reproduces exactly
+        const vals = params.get('vals');
+        if (vals) {
+          try {
+            const parsed = JSON.parse(vals);
+            if (parsed && typeof parsed === 'object') {
+              FormulaUI.saveFieldValues({ ...FormulaUI.loadFieldValues(), ...parsed });
+            }
+          } catch (_) {}
+        }
         return { from: 'url', auto: params.get('run') === '1' || params.get('auto') === '1' || params.get('autoplay') === '1' };
       }
 
@@ -74,6 +85,16 @@ import FormulaEngine from './formula_engine.js';
     url.searchParams.delete('f');
     url.searchParams.set('formula', formula || '');
     if (autoRun) url.searchParams.set('run', '1'); else url.searchParams.delete('run');
+    // Include current field values (if the inputs are rendered) so the link
+    // reproduces the exact scenario, not just the formula
+    url.searchParams.delete('vals');
+    try {
+      const ast = FormulaEngine.parse(formula);
+      const states = FormulaUI.collectFieldStates(ast, document);
+      if (states && Object.keys(states).length > 0) {
+        url.searchParams.set('vals', JSON.stringify(states));
+      }
+    } catch (_) {}
     return url.toString();
   }
 
