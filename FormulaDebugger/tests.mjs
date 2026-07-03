@@ -501,5 +501,36 @@ check('generated rows surface both guarded and unguarded cases', () => {
   eq(results[gen.rows.findIndex(r => r.values.Amount === null)], 'Error: Division by zero');
 });
 
+// --- Copy-paste artifact tolerance ---
+check('invisible characters are treated as whitespace', () => {
+  // zero-width space, word joiner, LTR mark, BOM — typical web-page paste debris
+  eq(evalFormula('IF(​ISPICKVAL(⁠Rating,‎ "Hot"﻿), 1, 0)', { Rating: 'Hot' }), 1);
+});
+check('curly double quotes delimit strings', () => {
+  eq(evalFormula('IF(ISPICKVAL(Rating, “Hot”), 1, 0)', { Rating: 'Hot' }), 1);
+  eq(evalFormula('IF(ISPICKVAL(Rating, “Hot”), 1, 0)', { Rating: 'Cold' }), 0);
+});
+check('curly single quotes delimit strings', () => {
+  eq(evalFormula('‘abc’ & ‘def’'), 'abcdef');
+});
+check('the pasted Salesforce CASE example works with curly quotes', () => {
+  const formula = 'CASE(1, IF( ISPICKVAL( Rating, “Hot”), 1, 0), 3, '
+    + 'IF( ISPICKVAL( Rating, “Warm”), 1, 0), 2, '
+    + 'IF( ISPICKVAL( Rating, “Cold”), 1, 0), 1, 0)';
+  eq(evalFormula(formula, { Rating: 'Warm' }), 2);
+  eq(evalFormula(formula, { Rating: 'Hot' }), 3);
+  eq(evalFormula(formula, { Rating: 'Nope' }), 0);
+});
+check('unexpected characters report their code point', () => {
+  let message = '';
+  try { FormulaEngine.parse('Amount § 5'); } catch (e) { message = e.message; }
+  eq(message.includes('(U+00A7)'), true);
+});
+check('extra closing parenthesis still reports a clear error', () => {
+  let message = '';
+  try { FormulaEngine.parse("IF(ISPICKVAL(Rating, “Hot”), 1, 0))"); } catch (e) { message = e.message; }
+  eq(message.includes("without matching '('"), true);
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
