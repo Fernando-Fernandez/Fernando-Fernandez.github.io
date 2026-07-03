@@ -227,8 +227,13 @@ check('HTMLENCODE', () =>
   eq(evalFormula("HTMLENCODE('<a & \"b\">')"), '&lt;a &amp; &quot;b&quot;&gt;'));
 check('JSENCODE', () =>
   eq(evalFormula("JSENCODE('he said \"hi\"')"), 'he said \\"hi\\"'));
-check('JSINHTMLENCODE', () =>
-  eq(evalFormula('JSINHTMLENCODE("a\'b")'), 'a\\&#39;b'));
+check('JSINHTMLENCODE is JSENCODE(HTMLENCODE(text))', () => {
+  // HTML encoding runs first, so the apostrophe becomes &#39; and there is
+  // nothing left for JSENCODE to escape
+  eq(evalFormula('JSINHTMLENCODE("a\'b")'), 'a&#39;b');
+  // A backslash survives HTML encoding and is then JS-escaped (doubled)
+  eq(evalFormula("JSINHTMLENCODE('a\\b & c')"), 'a\\\\b &amp; c');
+});
 check('URLENCODE uses form encoding', () =>
   eq(evalFormula("URLENCODE('a b&c')"), 'a+b%26c'));
 check('HYPERLINK builds an anchor', () => {

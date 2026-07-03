@@ -1039,7 +1039,8 @@ export default class FormulaEngine {
           }
           case 'JSINHTMLENCODE': {
             if (args.length !== 1) throw new Error('JSINHTMLENCODE requires exactly one argument');
-            return this.htmlEncode(this.jsEncode(args[0] == null ? '' : args[0]));
+            // Salesforce documents this as equivalent to JSENCODE(HTMLENCODE(text))
+            return this.jsEncode(this.htmlEncode(args[0] == null ? '' : args[0]));
           }
           case 'URLENCODE': {
             if (args.length !== 1) throw new Error('URLENCODE requires exactly one argument');
