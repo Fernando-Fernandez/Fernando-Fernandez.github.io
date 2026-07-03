@@ -1,5 +1,4 @@
 BR
-CASESAFEID
 CURRENCYRATE
 DISTANCE
 GEOLOCATION
@@ -10,11 +9,9 @@ HYPERLINK
 IMAGE
 IMAGEPROXYURL
 INCLUDE
-INCLUDES
 ISCHANGED
 ISCLONE
 ISNEW
-ISNULL
 JSENCODE
 JSINHTMLENCODE
 JUNCTIONIDLIST
@@ -23,7 +20,6 @@ PARENTGROUPVAL
 PREDICT
 PREVGROUPVAL
 PRIORVALUE
-REGEX
 REQUIRESCRIPT
 URLENCODE
 URLFOR
@@ -31,5 +27,6 @@ VLOOKUP
 
 Validate below in Salesforce:
 TIMENOW needs to return time instead of datetime
-NULLVALUE when testing is not receiving a null but empty string - we may need a checkbox for null
-MCEILING, MFLOOR, ROUND don't seem to work properly
+ROUND/CEILING/FLOOR/MCEILING/MFLOOR were aligned to documented Salesforce
+semantics (half away from zero; CEILING away from zero when negative; FLOOR
+toward zero; MCEILING/MFLOOR single-argument math versions) - spot-check in an org
