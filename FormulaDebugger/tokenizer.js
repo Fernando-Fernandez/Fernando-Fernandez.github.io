@@ -2,6 +2,8 @@ export default class Tokenizer {
     // Lightweight regex-based tokenizer for Salesforce formulas.
     // Order matters: multi-character operators must precede their prefixes
     // (&& before &, == before =, <= before <).
+    static INVISIBLE_CHAR_PATTERN = /[\u00AD\u034F\u061C\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\uFEFF]/g;
+
     static TOKEN_PATTERNS = [
         [/^\s+/, 'WHITESPACE'],
         [/^"[^"]*"/, 'DOUBLE_QUOTE_STRING'],
@@ -33,8 +35,12 @@ export default class Tokenizer {
         [/^[$a-zA-Z_]\w*(?:\.[$a-zA-Z_]\w*)*/, 'IDENTIFIER']
     ];
 
+    static sanitizeInput(inputString = '') {
+        return String(inputString || '').replace(Tokenizer.INVISIBLE_CHAR_PATTERN, '');
+    }
+
     initialize(inputString) {
-        this._expression = inputString;
+        this._expression = Tokenizer.sanitizeInput(inputString);
         this._currentPos = 0;
         this._parenStack = [];
     }

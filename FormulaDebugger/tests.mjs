@@ -46,6 +46,12 @@ check('cross-object field evaluates', () =>
   eq(evalFormula("Account.Industry = 'Tech'", { 'Account.Industry': 'Tech' }), true));
 check('global variable reference', () =>
   eq(evalFormula("$User.FirstName & '!'", { '$User.FirstName': 'Ann' }), 'Ann!'));
+check('zero-width characters stay inside identifiers', () => {
+  const ast = FormulaEngine.parse('ISPICKVAL(Ra\u200Bting, "Hot")');
+  eq(FormulaEngine.extractVariables(ast), ['Rating']);
+});
+check('soft hyphen debris does not split identifiers', () =>
+  eq(evalFormula('ISPICKVAL(Ra\u00ADting, "Hot")', { Rating: 'Warm' }), false));
 
 // --- Logical operators && and || ---
 check('&& evaluates', () => {
@@ -107,6 +113,12 @@ check('CASE does not evaluate untaken results', () =>
   eq(evalFormula("CASE(Level, 'A', 1, 'B', 2, 1 / 0)", { Level: 'A' }), 1));
 check('CASE falls through to default', () =>
   eq(evalFormula("CASE(Level, 'A', 1, 'B', 2, 99)", { Level: 'Z' }), 99));
+check('CASE handles nested IF comparisons with default', () => {
+  const formula = 'CASE(a, IF(ISPICKVAL(Rating, "Hot"), 1, 0), 3, IF(ISPICKVAL(Rating, "Warm"), 1, 0), 2, IF(ISPICKVAL(Rating, "Cold"), 1, 0), 1, 0)';
+  eq(evalFormula(formula, { a: 1, Rating: 'Hot' }), 3);
+  eq(evalFormula(formula, { a: 1, Rating: 'Warm' }), 2);
+  eq(evalFormula(formula, { a: 5, Rating: 'None' }), 0);
+});
 
 // --- N-ary AND / OR ---
 check('AND honors all arguments', () => {
@@ -308,11 +320,9 @@ check('flags zero-argument functions called with arguments', () => {
   eq(arityErrors('TODAY(1)')[0].message, 'TODAY expects exactly 0 arguments, but got 1');
 });
 check('flags CASE with an incomplete pair', () => {
-  // 5 args = expression + one pair + a dangling value with no result/default
   const errs = arityErrors("CASE(Level, 'A', 1, 'B', 2)");
   eq(errs.length, 1);
   eq(errs[0].message.includes('value/result pairs'), true);
-  // 4 args (expression + pair + default) is the minimal valid shape
   eq(arityErrors("CASE(Level, 'A', 1, 'B')").length, 0);
 });
 check('flags IMAGE with three arguments', () => {
