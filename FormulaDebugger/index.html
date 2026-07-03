@@ -32,6 +32,15 @@
       font-size: 22px;
     }
     .subtle { color: #57606a; font-size: 13px; margin-bottom: 16px; }
+    .note-card {
+      margin-bottom: 16px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #f3d27a;
+      background: #fff8e6;
+      color: #4b3b05;
+      font-size: 13px;
+    }
     textarea {
       width: 100%;
       min-height: 120px;
@@ -75,7 +84,7 @@
   <div class="page">
     <h1>Formula Debugger</h1>
     <div class="subtle">Standalone page to parse and evaluate Salesforce-style formulas.</div>
-    <div class="subtle">Runs locally in your browser. No credentials, API keys, passwords, or personal data are requested or sent to a backend.</div>
+    <div class="note-card">Runs locally in your browser. No credentials, API keys, passwords, or personal data are requested or sent to a backend.</div>
     <label for="CalculatedFormula" class="hint">Enter a formula:</label>
     <textarea id="CalculatedFormula" placeholder="Example: IF(Amount > 1000, 'High', 'Low')"></textarea>
     <div class="toolbar">
