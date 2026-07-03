@@ -268,6 +268,154 @@ export default class FormulaEngine {
     return errors;
   }
 
+  // Mine the AST for adversarial test values: for every place a field is
+  // compared against a constant, produce the values that sit exactly on the
+  // boundary (constant-1, constant, constant+1; matching/case-flipped strings;
+  // day-before/same/day-after dates; zero for divisors). Returns
+  // { fieldName: [{ value, reason }] }.
+  static collectBoundaryCandidates(ast) {
+    const candidates = {};
+    const seen = new Set();
+    const add = (field, value, reason) => {
+      const key = `${field}|${typeof value}|${String(value)}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      (candidates[field] = candidates[field] || []).push({ value, reason });
+    };
+
+    // A subtree is foldable when it references no real fields; NOW()/TODAY()
+    // style pseudo-variables evaluate fine without sample values
+    const isFoldable = (node) => {
+      try { return FormulaEngine.extractVariables(node).every(v => v.endsWith('()')); }
+      catch (_) { return false; }
+    };
+    const fold = (node) => {
+      try { return FormulaEngine.calculate(node, {}); } catch (_) { return undefined; }
+    };
+
+    const decimalsOf = (n) => {
+      const s = String(n);
+      const i = s.indexOf('.');
+      return i === -1 ? 0 : s.length - i - 1;
+    };
+
+    const flipCase = (s) => {
+      const up = s.toUpperCase();
+      if (up !== s) return up;
+      const low = s.toLowerCase();
+      return low !== s ? low : null;
+    };
+
+    const localIso = (d) => {
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    };
+
+    const addBoundaries = (field, constVal, exprText) => {
+      const asDate = FormulaEngine.toDate(constVal);
+      if (asDate) {
+        const before = new Date(asDate); before.setDate(before.getDate() - 1);
+        const after = new Date(asDate); after.setDate(after.getDate() + 1);
+        add(field, localIso(before), `day before value in ${exprText}`);
+        add(field, localIso(asDate), `same day as value in ${exprText}`);
+        add(field, localIso(after), `day after value in ${exprText}`);
+        return;
+      }
+      if (typeof constVal === 'number') {
+        const dec = decimalsOf(constVal);
+        const step = Math.pow(10, -dec);
+        const factor = Math.pow(10, dec);
+        const r = (x) => Math.round(x * factor) / factor;
+        const reason = `boundary of ${exprText}`;
+        add(field, r(constVal - step), reason);
+        add(field, constVal, reason);
+        add(field, r(constVal + step), reason);
+        return;
+      }
+      if (typeof constVal === 'string') {
+        add(field, constVal, `equals value in ${exprText}`);
+        const flipped = flipCase(constVal);
+        if (flipped) add(field, flipped, `case-flipped value from ${exprText}`);
+        return;
+      }
+      if (typeof constVal === 'boolean') {
+        add(field, true, `boundary of ${exprText}`);
+        add(field, false, `boundary of ${exprText}`);
+      }
+    };
+
+    (function walk(node) {
+      if (!node) return;
+      if (node.type === OPERATOR_TYPE) {
+        if (FormulaEngine.isComparisonOperator(node.operator)) {
+          if (node.left && node.left.type === 'Field' && isFoldable(node.right)) {
+            const v = fold(node.right);
+            if (v !== undefined && v !== null) addBoundaries(node.left.name, v, FormulaEngine.rebuild(node));
+          }
+          if (node.right && node.right.type === 'Field' && isFoldable(node.left)) {
+            const v = fold(node.left);
+            if (v !== undefined && v !== null) addBoundaries(node.right.name, v, FormulaEngine.rebuild(node));
+          }
+        }
+        if (node.operator === '/' && node.right && node.right.type === 'Field') {
+          add(node.right.name, 0, `divisor in ${FormulaEngine.rebuild(node)}`);
+        }
+        walk(node.left);
+        walk(node.right);
+        return;
+      }
+      if (node.type === 'Function') {
+        const name = (node.name || '').toUpperCase();
+        const args = node.arguments || [];
+        if (name === 'MOD' && args[1] && args[1].type === 'Field') {
+          add(args[1].name, 0, `divisor in ${FormulaEngine.rebuild(node)}`);
+        }
+        if ((name === 'CONTAINS' || name === 'BEGINS' || name === 'INCLUDES' || name === 'ISPICKVAL')
+            && args[0] && args[0].type === 'Field' && args[1] && isFoldable(args[1])) {
+          const v = fold(args[1]);
+          if (typeof v === 'string' && v !== '') {
+            const expr = FormulaEngine.rebuild(node);
+            add(args[0].name, v, `matches ${expr}`);
+            const flipped = flipCase(v);
+            if (flipped) add(args[0].name, flipped, `case-flipped for ${expr}`);
+            if (name === 'INCLUDES') add(args[0].name, `${v};Other`, `multi-select containing value for ${expr}`);
+            add(args[0].name, 'unrelated', `non-matching for ${expr}`);
+          }
+        }
+        if (name === 'CASE' && args.length >= 4 && args[0] && args[0].type === 'Field') {
+          const folded = [];
+          for (let i = 1; i < args.length - 1; i += 2) {
+            if (isFoldable(args[i])) {
+              const v = fold(args[i]);
+              if (v !== undefined && v !== null) {
+                folded.push(v);
+                add(args[0].name, v, 'CASE branch value');
+              }
+            }
+          }
+          if (folded.length > 0) {
+            const noMatch = folded.every(v => typeof v === 'number')
+              ? Math.max(...folded) + 1
+              : 'unmatched';
+            add(args[0].name, noMatch, 'CASE default branch');
+          }
+        }
+        if ((name === 'LEFT' || name === 'RIGHT') && args[0] && args[0].type === 'Field'
+            && args[1] && isFoldable(args[1])) {
+          const n = fold(args[1]);
+          if (typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= 100) {
+            const expr = FormulaEngine.rebuild(node);
+            add(args[0].name, 'x'.repeat(n - 1), `shorter than count in ${expr}`);
+            add(args[0].name, 'x'.repeat(n), `exact count in ${expr}`);
+            add(args[0].name, 'x'.repeat(n + 1), `longer than count in ${expr}`);
+          }
+        }
+        args.forEach(walk);
+      }
+    })(ast);
+    return candidates;
+  }
+
   // Annotate nodes with resultType; optionally honor user-provided sample types/values
   static annotateTypes(ast, sampleVariables = {}, sampleTypes = {}) {
     const infer = (node) => {

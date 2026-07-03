@@ -3,6 +3,7 @@
 import FormulaEngine from './formula_engine.js';
 import FormulaUI from './formula_ui.js';
 import { explainFormula } from './formula_explain.js';
+import { generateScenarios } from './formula_matrix.js';
 
 let passed = 0;
 let failed = 0;
@@ -337,6 +338,116 @@ check('accepts optional-argument ranges', () => {
 check('valid formulas produce no arity errors', () => {
   eq(arityErrors("IF(ISBLANK(Name), 'x', LEFT(Name, 3)) & TEXT(ROUND(Amount, 2))").length, 0);
   eq(arityErrors("DISTANCE(GEOLOCATION(1, 2), GEOLOCATION(3, 4), 'km')").length, 0);
+});
+
+// --- Boundary candidate mining ---
+function boundaries(formula) {
+  return FormulaEngine.collectBoundaryCandidates(FormulaEngine.parse(formula));
+}
+function valuesFor(cands, field) {
+  return (cands[field] || []).map(c => c.value);
+}
+check('numeric comparison yields boundary triple', () => {
+  eq(valuesFor(boundaries('Amount > 1000'), 'Amount'), [999, 1000, 1001]);
+});
+check('decimal comparison steps by its precision', () => {
+  eq(valuesFor(boundaries('Rate >= 10.25'), 'Rate'), [10.24, 10.25, 10.26]);
+});
+check('field on the right side also gets boundaries', () => {
+  eq(valuesFor(boundaries('100 <= Amount'), 'Amount'), [99, 100, 101]);
+});
+check('constant side is folded, not just literals', () => {
+  eq(valuesFor(boundaries('Amount > 10 * 10'), 'Amount'), [99, 100, 101]);
+});
+check('text match yields exact, case-flipped, and non-matching values', () => {
+  const vals = valuesFor(boundaries("CONTAINS(Name, 'VIP')"), 'Name');
+  eq(vals.includes('VIP'), true);
+  eq(vals.includes('vip'), true);
+  eq(vals.includes('unrelated'), true);
+});
+check('INCLUDES adds a multi-select combination', () => {
+  eq(valuesFor(boundaries("INCLUDES(Colors, 'Red')"), 'Colors').includes('Red;Other'), true);
+});
+check('divisor fields get zero', () => {
+  eq(valuesFor(boundaries('100 / Amount'), 'Amount'), [0]);
+  eq(valuesFor(boundaries('MOD(Total, Divisor)'), 'Divisor'), [0]);
+});
+check('CASE values and a computed no-match are mined', () => {
+  const vals = valuesFor(boundaries("CASE(Level, 'A', 1, 'B', 2, 0)"), 'Level');
+  eq(vals.includes('A'), true);
+  eq(vals.includes('B'), true);
+  eq(vals.includes('unmatched'), true);
+  const nums = valuesFor(boundaries('CASE(Tier, 1, 10, 2, 20, 0)'), 'Tier');
+  eq(nums.includes(3), true); // max + 1
+});
+check('date comparison against TODAY yields day-before/same/day-after', () => {
+  const vals = valuesFor(boundaries('CloseDate < TODAY()'), 'CloseDate');
+  eq(vals.length, 3);
+  eq(vals.every(v => /^\d{4}-\d{2}-\d{2}$/.test(v)), true);
+});
+check('LEFT count yields shorter/exact/longer strings', () => {
+  eq(valuesFor(boundaries("LEFT(Code, 3) = 'abc'"), 'Code').includes('xx'), true);
+  eq(valuesFor(boundaries("LEFT(Code, 3) = 'abc'"), 'Code').includes('xxxx'), true);
+});
+check('no boundary candidates for field-to-field comparisons', () => {
+  eq(Object.keys(boundaries('Amount > Target')).length, 0);
+});
+
+// --- Scenario generation ---
+check('scenario fields exclude NOW()/TODAY() pseudo-variables', () => {
+  const gen = generateScenarios(FormulaEngine.parse('IF(CloseDate < TODAY(), Amount, 0)'), {}, {});
+  eq(gen.fields.sort(), ['Amount', 'CloseDate']);
+});
+check('first row is the current values baseline', () => {
+  const gen = generateScenarios(FormulaEngine.parse('Amount > 1000'), {}, { Amount: '500' });
+  eq(gen.rows[0].reason, 'current values');
+  eq(gen.rows[0].values.Amount, '500');
+});
+check('boundary rows come right after the baseline', () => {
+  const gen = generateScenarios(FormulaEngine.parse('Amount > 1000'), {}, {});
+  const boundaryValues = gen.rows.slice(1, 4).map(r => r.values.Amount);
+  eq(boundaryValues, [999, 1000, 1001]);
+});
+check('multi-field formulas get combined specials', () => {
+  const gen = generateScenarios(FormulaEngine.parse("Amount > 1 && Name = 'x'"), {}, {});
+  eq(gen.rows.some(r => r.reason === 'all fields null' && r.values.Amount === null && r.values.Name === null), true);
+});
+check('typed fields get type-specific candidates', () => {
+  const gen = generateScenarios(FormulaEngine.parse('Amount * 2'), { Amount: 'Number' }, {});
+  const vals = gen.rows.map(r => r.values.Amount);
+  eq(vals.includes(-1), true);
+  eq(vals.includes(999999999), true);
+});
+check('date candidates are computed from the injected clock', () => {
+  const gen = generateScenarios(FormulaEngine.parse('D < TODAY()'), { D: 'Date' },
+    {}, { now: '2026-02-15T12:00:00' });
+  const vals = gen.rows.map(r => r.values.D);
+  eq(vals.includes('2026-02-15'), true); // today
+  eq(vals.includes('2026-02-28'), true); // last day of month
+  eq(vals.includes('2028-02-29'), true); // nearest leap day
+});
+check('rows are deduplicated and capped', () => {
+  const gen = generateScenarios(
+    FormulaEngine.parse("A > 1 && B > 2 && C > 3 && D = 'x' && E = 'y'"), {}, {}, { maxRows: 20 });
+  eq(gen.rows.length, 20);
+  eq(gen.truncated, true);
+  const keys = gen.rows.map(r => JSON.stringify(r.values));
+  eq(new Set(keys).size, keys.length);
+});
+check('generated rows surface both guarded and unguarded cases', () => {
+  const ast = FormulaEngine.parse("IF(Amount = 0, 'none', 100 / Amount)");
+  const gen = generateScenarios(ast, { Amount: 'Number' }, {});
+  const results = gen.rows.map(row => {
+    const coerced = FormulaUI.coerceVariables(row.values, { Amount: 'Number' });
+    try { return FormulaEngine.calculate(ast, coerced, new Map()); }
+    catch (e) { return `Error: ${e.message}`; }
+  });
+  // The zero boundary is caught by the formula's own guard
+  eq(results[gen.rows.findIndex(r => r.values.Amount === 0)], 'none');
+  eq(results[gen.rows.findIndex(r => r.values.Amount === 1)], 100);
+  // ...but null is not zero, so the null row exposes an unguarded division —
+  // exactly the kind of finding the matrix exists to surface
+  eq(results[gen.rows.findIndex(r => r.values.Amount === null)], 'Error: Division by zero');
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
