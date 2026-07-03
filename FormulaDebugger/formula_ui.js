@@ -1,6 +1,7 @@
 import FormulaEngine from './formula_engine.js';
 import { openSvgDiagram as openSvgDiagramWindow } from './formula_svg.js';
 import { explainFormula } from './formula_explain.js';
+import { generateScenarios } from './formula_matrix.js';
 
 // CSS style constants
 const STYLE_ERROR_BOX = 'color: red; padding: 10px; background: #ffe8e8; border: 1px solid #f44336; border-radius: 4px;';
@@ -16,6 +17,18 @@ const STYLE_NULL_LABEL = 'display: flex; align-items: center; gap: 4px; font-siz
 const STYLE_EXPLAIN_BOX = 'margin: 12px 0; padding: 8px 12px; background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px;';
 const STYLE_EXPLAIN_SUMMARY = 'cursor: pointer; font-weight: bold; font-size: 13px;';
 const STYLE_EXPLAIN_TEXT = 'font-family: inherit; font-size: 13px; line-height: 1.6; white-space: pre-wrap; margin: 8px 0 0;';
+const STYLE_MATRIX_SECTION = 'margin: 12px 0; padding: 8px 12px; background: #fff; border: 1px solid #d0d7de; border-radius: 6px;';
+const STYLE_MATRIX_HEADER = 'display: flex; align-items: center; gap: 8px; flex-wrap: wrap;';
+const STYLE_MATRIX_BUTTON = 'padding: 4px 10px; background: #555; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;';
+const STYLE_MATRIX_SUMMARY = 'font-size: 12px; color: #57606a; margin-left: auto;';
+const STYLE_MATRIX_WRAP = 'margin-top: 8px; overflow-x: auto; max-height: 420px; overflow-y: auto;';
+const STYLE_MATRIX_TABLE = 'border-collapse: collapse; font-size: 12px; width: 100%;';
+const STYLE_MATRIX_TH = 'padding: 4px 8px; border: 1px solid #d0d7de; background: #f6f8fa; text-align: left; position: sticky; top: 0;';
+const STYLE_MATRIX_TD = 'padding: 4px 8px; border: 1px solid #d0d7de; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;';
+const STYLE_MATRIX_TD_WHY = 'padding: 4px 8px; border: 1px solid #d0d7de; color: #57606a;';
+const STYLE_MATRIX_LOAD_BTN = 'padding: 2px 8px; background: #007cba; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 11px;';
+// Distinct results share a background so outcome groups are visible at a glance
+const MATRIX_GROUP_COLORS = ['#eef7ee', '#eef2fb', '#fdf3e7', '#f6eef7', '#eefafa', '#fbeeee', '#f4f7ee', '#f9f9f9'];
 const STYLE_PRIMARY_BUTTON = 'padding: 8px 16px; background: #007cba; color: white; border: none; border-radius: 4px; cursor: pointer;';
 const STYLE_SECONDARY_BUTTON = 'padding: 8px 16px; background: #555; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 8px;';
 const STYLE_RESULT_BOX = 'margin: 10px 0; padding: 10px; background: #e8f5e8; border: 1px solid #4caf50; border-radius: 4px; display: none;';
@@ -80,6 +93,27 @@ export default class FormulaUI {
       FormulaEngine.isGeolocation(r) ? `${r.latitude}, ${r.longitude}` :
       (typeof r === 'number' && r % 1 !== 0 ? r.toFixed(6) : String(r))
     );
+  }
+
+  // Evaluate one scenario with the same gate the calculator applies:
+  // comparison/arithmetic type checks first, then calculate. Type problems
+  // and runtime errors come back as display strings.
+  static evaluateScenarioResult(ast, values, types) {
+    const coerced = FormulaUI.coerceVariables(values, types);
+    try {
+      FormulaEngine.annotateTypes(ast, coerced, types);
+      const typeErrors = [
+        ...FormulaEngine.collectComparisonTypeErrors(ast),
+        ...FormulaEngine.collectArithmeticTypeErrors(ast),
+      ];
+      if (typeErrors.length > 0) {
+        const e = typeErrors[0];
+        return `Type error: ${e.leftType} ${e.operator} ${e.rightType}`;
+      }
+      return FormulaUI.formatValue(FormulaEngine.calculate(ast, coerced, new Map()));
+    } catch (e) {
+      return `Error: ${e.message}`;
+    }
   }
 
   // Build a Mermaid diagram string for the AST
@@ -402,6 +436,11 @@ export default class FormulaUI {
     explainDetails.appendChild(explainText);
     container.appendChild(explainDetails);
 
+    const matrixFields = variables.filter(v => !v.endsWith('()'));
+    if (matrixFields.length > 0) {
+      container.appendChild(FormulaUI.buildScenarioSection(doc, ast, matrixFields));
+    }
+
     if (steps.length > 0) {
       const stepsList = doc.createElement('div');
       stepsList.id = 'stepsList';
@@ -415,6 +454,187 @@ export default class FormulaUI {
     }
 
     debugOutput.appendChild(container);
+  }
+
+  // Scenario matrix: rows of field values evaluated side by side, with an
+  // edge-case generator. Rows live only for the current analysis.
+  static buildScenarioSection(doc, ast, fields) {
+    const section = doc.createElement('div');
+    section.style.cssText = STYLE_MATRIX_SECTION;
+
+    const header = doc.createElement('div');
+    header.style.cssText = STYLE_MATRIX_HEADER;
+    const title = doc.createElement('strong');
+    title.textContent = 'Scenario Matrix';
+    header.appendChild(title);
+
+    const makeButton = (label) => {
+      const b = doc.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.style.cssText = STYLE_MATRIX_BUTTON;
+      return b;
+    };
+    const genBtn = makeButton('Generate Edge Cases');
+    const addBtn = makeButton('Add Current Values');
+    const clearBtn = makeButton('Clear');
+    header.appendChild(genBtn);
+    header.appendChild(addBtn);
+    header.appendChild(clearBtn);
+
+    const summary = doc.createElement('span');
+    summary.style.cssText = STYLE_MATRIX_SUMMARY;
+    header.appendChild(summary);
+    section.appendChild(header);
+
+    const tableWrap = doc.createElement('div');
+    tableWrap.style.cssText = STYLE_MATRIX_WRAP;
+    section.appendChild(tableWrap);
+
+    let rows = [];
+    let truncated = false;
+
+    const displayCell = (v) => {
+      if (v === null) return 'null';
+      if (v === '') return '(empty)';
+      const s = String(v);
+      return s.length > 24 ? `${s.slice(0, 24)}…` : s;
+    };
+
+    const loadRow = (row) => {
+      for (const f of fields) {
+        const input = doc.getElementById(`var-${f}`);
+        const nullChk = doc.getElementById(`null-${f}`);
+        if (!input) continue;
+        const v = row.values[f];
+        if (v === null) {
+          if (nullChk) nullChk.checked = true;
+          input.disabled = true;
+        } else {
+          if (nullChk) nullChk.checked = false;
+          input.disabled = false;
+          let text = v === undefined ? '' : String(v);
+          // Native date/time inputs silently reject mismatched formats,
+          // leaving the control blank; adapt the value to the input type
+          if (input.type === 'datetime-local' && /^\d{4}-\d{2}-\d{2}$/.test(text)) {
+            text = `${text}T00:00`;
+          } else if (input.type === 'date' && /^\d{4}-\d{2}-\d{2}T/.test(text)) {
+            text = text.slice(0, 10);
+          }
+          input.value = text;
+        }
+      }
+      FormulaUI.calculateAndDisplay(ast, doc);
+    };
+
+    const render = () => {
+      tableWrap.innerHTML = '';
+      if (rows.length === 0) {
+        summary.textContent = 'No scenarios yet — generate edge cases or add rows.';
+        return;
+      }
+
+      const { values: currentValues, types } = FormulaUI.getVariableValues(ast, doc);
+
+      // Evaluate every row; type problems and errors are results too
+      const groups = new Map(); // formatted result -> group index
+      for (const row of rows) {
+        row.result = FormulaUI.evaluateScenarioResult(ast, { ...currentValues, ...row.values }, types);
+        if (!groups.has(row.result)) groups.set(row.result, groups.size);
+      }
+      // Leave the AST annotated for the editor's own values, not the last row's
+      try {
+        FormulaEngine.annotateTypes(ast, FormulaUI.coerceVariables(currentValues, types), types);
+      } catch (_) {}
+
+      const table = doc.createElement('table');
+      table.style.cssText = STYLE_MATRIX_TABLE;
+      const headRow = doc.createElement('tr');
+      for (const label of [...fields, 'Result', 'Why', '']) {
+        const th = doc.createElement('th');
+        th.style.cssText = STYLE_MATRIX_TH;
+        th.textContent = label;
+        headRow.appendChild(th);
+      }
+      table.appendChild(headRow);
+
+      rows.forEach((row, idx) => {
+        const tr = doc.createElement('tr');
+        tr.style.background = MATRIX_GROUP_COLORS[groups.get(row.result) % MATRIX_GROUP_COLORS.length];
+        for (const f of fields) {
+          const td = doc.createElement('td');
+          td.style.cssText = STYLE_MATRIX_TD;
+          const v = row.values[f];
+          td.textContent = displayCell(v);
+          if (v !== null && v !== undefined && String(v).length > 24) td.title = String(v);
+          tr.appendChild(td);
+        }
+        const resultTd = doc.createElement('td');
+        resultTd.style.cssText = `${STYLE_MATRIX_TD} font-weight: bold;`;
+        resultTd.textContent = displayCell(row.result);
+        if (String(row.result).length > 24) resultTd.title = String(row.result);
+        tr.appendChild(resultTd);
+
+        const whyTd = doc.createElement('td');
+        whyTd.style.cssText = STYLE_MATRIX_TD_WHY;
+        whyTd.textContent = row.reason;
+        tr.appendChild(whyTd);
+
+        const actionTd = doc.createElement('td');
+        actionTd.style.cssText = STYLE_MATRIX_TD;
+        const loadBtn = doc.createElement('button');
+        loadBtn.type = 'button';
+        loadBtn.textContent = 'Load';
+        loadBtn.title = 'Copy these values into the field inputs and calculate';
+        loadBtn.style.cssText = STYLE_MATRIX_LOAD_BTN;
+        loadBtn.addEventListener('click', () => loadRow(row));
+        actionTd.appendChild(loadBtn);
+        const delBtn = doc.createElement('button');
+        delBtn.type = 'button';
+        delBtn.textContent = '✕';
+        delBtn.title = 'Remove this row';
+        delBtn.style.cssText = `${STYLE_MATRIX_LOAD_BTN} background: #999; margin-left: 4px;`;
+        delBtn.addEventListener('click', () => { rows.splice(idx, 1); render(); });
+        actionTd.appendChild(delBtn);
+        tr.appendChild(actionTd);
+
+        table.appendChild(tr);
+      });
+      tableWrap.appendChild(table);
+
+      const distinct = groups.size;
+      summary.textContent = `${rows.length} scenario${rows.length === 1 ? '' : 's'}, `
+        + `${distinct} distinct result${distinct === 1 ? '' : 's'}`
+        + (truncated ? ' (row limit reached)' : '');
+    };
+
+    genBtn.addEventListener('click', () => {
+      // Pass all values including NOW()/TODAY() test inputs, so mined
+      // boundaries and date templates use the clock rows are evaluated against
+      const { values, types } = FormulaUI.getVariableValues(ast, doc);
+      const generated = generateScenarios(ast, types, values);
+      rows = generated.rows;
+      truncated = generated.truncated;
+      render();
+    });
+
+    addBtn.addEventListener('click', () => {
+      const { values } = FormulaUI.getVariableValues(ast, doc);
+      const snapshot = {};
+      for (const f of fields) snapshot[f] = values[f];
+      rows.push({ values: snapshot, reason: 'manual row' });
+      truncated = false;
+      render();
+    });
+
+    clearBtn.addEventListener('click', () => {
+      rows = [];
+      truncated = false;
+      render();
+    });
+
+    render();
+    return section;
   }
 
   static openMermaidDiagram(ast) {
