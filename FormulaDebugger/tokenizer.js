@@ -4,9 +4,17 @@ export default class Tokenizer {
     // (&& before &, == before =, <= before <).
     static TOKEN_PATTERNS = [
         [/^\s+/, 'WHITESPACE'],
+        // Invisible characters that ride along when formulas are copied from
+        // web pages or documents (soft hyphen, zero-width spaces/joiners,
+        // directional marks, word joiner, BOM) — treat as whitespace
+        [/^[\u00AD\u200B-\u200F\u2060\uFEFF]+/, 'WHITESPACE'],
         [/^"[^"]*"/, 'DOUBLE_QUOTE_STRING'],
+        // Curly ("smart") quotes from copy-pasted documents delimit strings
+        // like their straight counterparts
+        [/^[“”][^“”]*[“”]/, 'DOUBLE_QUOTE_STRING'],
         [/^(?:\d+(?:\.\d+)?|\.\d+)/, 'NUMBER'],
         [/^'[^']*'/, 'STRING'],
+        [/^[‘’][^‘’]*[‘’]/, 'STRING'],
         [/^\/\/.*/, 'SINGLE_LINE_COMMENT'],
         [/^\/\*[\s\S]*?\*\//, 'MULTI_LINE_COMMENT'],
         [/^[+\-]/, 'ADDITIVE_OPERATOR'],
@@ -60,7 +68,11 @@ export default class Tokenizer {
         }
         const pos = this._currentPos + 1;
         const expressionSnippet = this._expression.slice(Math.max(0, pos - 10), pos + 10);
-        throw new Error(`Unexpected character at position ${pos}: '${remainingPart[0]}'. Near: '${expressionSnippet}'`);
+        // Include the code point: invisible or lookalike characters from
+        // copy-paste would otherwise show as '' and be undiagnosable
+        const ch = remainingPart[0];
+        const codePoint = `U+${ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}`;
+        throw new Error(`Unexpected character at position ${pos}: '${ch}' (${codePoint}). Near: '${expressionSnippet}'`);
     }
     findMatch(regExpression, remainingPart) {
         const theMatch = remainingPart.match(regExpression);
