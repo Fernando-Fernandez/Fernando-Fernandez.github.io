@@ -589,10 +589,10 @@ export default class FormulaUI {
     };
 
     genBtn.addEventListener('click', () => {
+      // Pass all values including NOW()/TODAY() test inputs, so mined
+      // boundaries and date templates use the clock rows are evaluated against
       const { values, types } = FormulaUI.getVariableValues(ast, doc);
-      const baseline = {};
-      for (const f of fields) baseline[f] = values[f];
-      const generated = generateScenarios(ast, types, baseline);
+      const generated = generateScenarios(ast, types, values);
       rows = generated.rows;
       truncated = generated.truncated;
       render();

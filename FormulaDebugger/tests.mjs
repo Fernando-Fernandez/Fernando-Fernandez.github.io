@@ -434,6 +434,31 @@ check('rows are deduplicated and capped', () => {
   const keys = gen.rows.map(r => JSON.stringify(r.values));
   eq(new Set(keys).size, keys.length);
 });
+check('boundary mining honors TODAY() test values', () => {
+  const localIso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const shift = (d, n) => { const c = new Date(d); c.setDate(c.getDate() + n); return c; };
+  const pseudo = { 'TODAY()': '2026-01-01' };
+  // Expected center: whatever the engine itself evaluates TODAY() to with
+  // this test value (avoids timezone assumptions in the test)
+  const today = FormulaEngine.calculate(FormulaEngine.parse('TODAY()'), pseudo);
+  const cands = FormulaEngine.collectBoundaryCandidates(FormulaEngine.parse('CloseDate < TODAY()'), pseudo);
+  eq(cands.CloseDate.map(c => c.value),
+    [localIso(shift(today, -1)), localIso(today), localIso(shift(today, 1))]);
+});
+check('generator clock follows the TODAY() test value', () => {
+  const localIso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const pseudo = { 'TODAY()': '2026-01-01' };
+  const today = FormulaEngine.calculate(FormulaEngine.parse('TODAY()'), pseudo);
+  const gen = generateScenarios(FormulaEngine.parse('D < TODAY()'), { D: 'Date' }, pseudo);
+  const vals = gen.rows.map(r => r.values.D);
+  // Mined boundary row sits on the test date (the tier-2 "today" template
+  // produces the same value and is deduplicated into the boundary row)
+  eq(vals.includes(localIso(today)), true);
+  eq(gen.rows.some(r => r.reason === 'D: same day as value in D < TODAY()'), true);
+  // Month-boundary template proves tier 2 uses the test clock, not the real one
+  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  eq(gen.rows.some(r => r.reason === 'D: first day of this month' && r.values.D === localIso(firstOfMonth)), true);
+});
 check('generated rows surface both guarded and unguarded cases', () => {
   const ast = FormulaEngine.parse("IF(Amount = 0, 'none', 100 / Amount)");
   const gen = generateScenarios(ast, { Amount: 'Number' }, {});

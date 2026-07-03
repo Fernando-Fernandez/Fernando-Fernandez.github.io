@@ -94,10 +94,25 @@ function typeCandidates(type, now) {
 }
 
 export function generateScenarios(ast, types = {}, baseline = {}, options = {}) {
-  const fields = FormulaEngine.extractVariables(ast).filter(v => !v.endsWith('()'));
-  const now = options.now ? new Date(options.now) : new Date();
+  const allVars = FormulaEngine.extractVariables(ast);
+  const fields = allVars.filter(v => !v.endsWith('()'));
+
+  // Pseudo-variable test values (NOW()/TODAY()/TIMENOW()) ride along in the
+  // baseline; mined boundaries and date templates must use the same clock the
+  // rows will be evaluated against, not the real one
+  const pseudos = {};
+  for (const [k, v] of Object.entries(baseline)) {
+    if (k.endsWith('()') && v !== undefined && v !== null && v !== '') pseudos[k] = v;
+  }
+
+  const clockSource = options.now
+    || pseudos['TODAY()']
+    || pseudos['NOW()'];
+  const clockDate = clockSource ? FormulaEngine.toDate(clockSource) : null;
+  const now = clockDate || new Date();
+
   const maxRows = options.maxRows || MAX_ROWS;
-  const boundary = FormulaEngine.collectBoundaryCandidates(ast);
+  const boundary = FormulaEngine.collectBoundaryCandidates(ast, pseudos);
 
   const base = {};
   for (const f of fields) base[f] = baseline[f] !== undefined ? baseline[f] : '';

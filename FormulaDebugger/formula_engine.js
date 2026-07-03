@@ -273,7 +273,10 @@ export default class FormulaEngine {
   // boundary (constant-1, constant, constant+1; matching/case-flipped strings;
   // day-before/same/day-after dates; zero for divisors). Returns
   // { fieldName: [{ value, reason }] }.
-  static collectBoundaryCandidates(ast) {
+  // pseudoVariables carries test values for NOW()/TODAY()/TIMENOW() so that
+  // boundaries mined from clock-relative comparisons match the clock the
+  // rows will actually be evaluated against.
+  static collectBoundaryCandidates(ast, pseudoVariables = {}) {
     const candidates = {};
     const seen = new Set();
     const add = (field, value, reason) => {
@@ -284,13 +287,13 @@ export default class FormulaEngine {
     };
 
     // A subtree is foldable when it references no real fields; NOW()/TODAY()
-    // style pseudo-variables evaluate fine without sample values
+    // style pseudo-variables evaluate against their test values (or the clock)
     const isFoldable = (node) => {
       try { return FormulaEngine.extractVariables(node).every(v => v.endsWith('()')); }
       catch (_) { return false; }
     };
     const fold = (node) => {
-      try { return FormulaEngine.calculate(node, {}); } catch (_) { return undefined; }
+      try { return FormulaEngine.calculate(node, pseudoVariables); } catch (_) { return undefined; }
     };
 
     const decimalsOf = (n) => {
