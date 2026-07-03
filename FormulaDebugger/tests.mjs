@@ -140,5 +140,59 @@ check('division by zero still throws when evaluated', () => {
   eq(threw, true);
 });
 
+// --- New functions: ISNULL, INCLUDES, REGEX, CASESAFEID, TRUNC ---
+check('ISNULL', () => {
+  eq(evalFormula('ISNULL(X)', { X: null }), true);
+  eq(evalFormula('ISNULL(NULL)'), true);
+  eq(evalFormula("ISNULL('a')"), false);
+  eq(evalFormula('ISNULL(0)'), false);
+});
+check('INCLUDES on multiselect picklist', () => {
+  eq(evalFormula("INCLUDES(Colors, 'Red')", { Colors: 'Red;Blue' }), true);
+  eq(evalFormula("INCLUDES(Colors, 'Green')", { Colors: 'Red;Blue' }), false);
+  eq(evalFormula("INCLUDES(Colors, 'Red')", { Colors: null }), false);
+});
+check('REGEX matches the entire string', () => {
+  eq(evalFormula("REGEX('123-45-6789', '[0-9]{3}-[0-9]{2}-[0-9]{4}')"), true);
+  eq(evalFormula("REGEX('abc123', '[0-9]+')"), false);
+  eq(evalFormula("REGEX('123', '[0-9]+')"), true);
+});
+check('REGEX rejects invalid patterns', () => {
+  let threw = false;
+  try { evalFormula("REGEX('a', '[')"); } catch (_) { threw = true; }
+  eq(threw, true);
+});
+check('CASESAFEID computes the 18-character suffix', () => {
+  eq(evalFormula("CASESAFEID('aaaaaaaaaaaaaaa')"), 'aaaaaaaaaaaaaaaAAA');
+  eq(evalFormula("CASESAFEID('AAAAAaaaaaaaaaa')"), 'AAAAAaaaaaaaaaa5AA');
+  eq(evalFormula("CASESAFEID('aaaaaaaaaaaaaaaAAA')"), 'aaaaaaaaaaaaaaaAAA');
+});
+check('TRUNC truncates toward zero', () => {
+  eq(evalFormula('TRUNC(2.9)'), 2);
+  eq(evalFormula('TRUNC(-2.9)'), -2);
+  eq(evalFormula('TRUNC(123.456, 2)'), 123.45);
+});
+
+// --- Salesforce rounding parity on negatives ---
+check('ROUND rounds half away from zero', () => {
+  eq(evalFormula('ROUND(2.5, 0)'), 3);
+  eq(evalFormula('ROUND(-2.5, 0)'), -3);
+  eq(evalFormula('ROUND(-1.45, 1)'), -1.5);
+});
+check('CEILING rounds away from zero when negative', () => {
+  eq(evalFormula('CEILING(2.1)'), 3);
+  eq(evalFormula('CEILING(-2.1)'), -3);
+});
+check('FLOOR rounds toward zero when negative', () => {
+  eq(evalFormula('FLOOR(2.9)'), 2);
+  eq(evalFormula('FLOOR(-2.9)'), -2);
+});
+check('MCEILING/MFLOOR use math semantics', () => {
+  eq(evalFormula('MCEILING(2.1)'), 3);
+  eq(evalFormula('MCEILING(-2.5)'), -2);
+  eq(evalFormula('MFLOOR(2.9)'), 2);
+  eq(evalFormula('MFLOOR(-2.5)'), -3);
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

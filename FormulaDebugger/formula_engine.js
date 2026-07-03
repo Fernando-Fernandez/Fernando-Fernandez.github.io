@@ -241,6 +241,7 @@ export default class FormulaEngine {
             case 'LOG':
             case 'SQRT':
             case 'ROUND':
+            case 'TRUNC':
             case 'MCEILING':
             case 'MFLOOR':
             case 'FLOOR':
@@ -272,6 +273,7 @@ export default class FormulaEngine {
             case 'TEXT':
             case 'LPAD':
             case 'RPAD':
+            case 'CASESAFEID':
             case 'SUBSTITUTE':
               node.resultType = this.RESULT_TYPE.Text; return node.resultType;
             case 'LEN': node.resultType = this.RESULT_TYPE.Number; return node.resultType;
@@ -298,6 +300,9 @@ export default class FormulaEngine {
             case 'NOT':
             case 'ISPICKVAL':
             case 'ISBLANK':
+            case 'ISNULL':
+            case 'INCLUDES':
+            case 'REGEX':
             case 'ISNUMBER': node.resultType = this.RESULT_TYPE.Boolean; return node.resultType;
             case 'NOW': node.resultType = this.RESULT_TYPE.DateTime; return node.resultType;
             case 'TIMENOW': node.resultType = this.RESULT_TYPE.DateTime; return node.resultType;
@@ -675,23 +680,31 @@ export default class FormulaEngine {
             if (!Number.isFinite(digitsRaw)) throw new Error('ROUND num_digits must be numeric');
             const digits = Math.trunc(digitsRaw);
             const factor = Math.pow(10, digits);
-            return Math.round(x * factor) / factor;
+            // Salesforce rounds half away from zero; Math.round rounds half toward +Infinity
+            return Math.sign(x) * Math.round(Math.abs(x) * factor) / factor;
           }
           case 'MCEILING': {
-            if (args.length !== 2) throw new Error('MCEILING requires two arguments: number, significance');
+            // Salesforce MCEILING rounds up to the nearest integer, toward zero if negative
+            if (args.length !== 1) throw new Error('MCEILING requires exactly one argument');
             const x = parseFloat(args[0]);
             if (!Number.isFinite(x)) return 0;
-            const significance = parseFloat(args[1]);
-            if (!Number.isFinite(significance) || significance === 0) throw new Error('MCEILING significance must be a non-zero numeric value');
-            return Math.ceil(x / significance) * significance;
+            return Math.ceil(x);
           }
           case 'MFLOOR': {
-            if (args.length !== 2) throw new Error('MFLOOR requires two arguments: number, significance');
+            // Salesforce MFLOOR rounds down to the nearest integer, away from zero if negative
+            if (args.length !== 1) throw new Error('MFLOOR requires exactly one argument');
             const x = parseFloat(args[0]);
             if (!Number.isFinite(x)) return 0;
-            const significance = parseFloat(args[1]);
-            if (!Number.isFinite(significance) || significance === 0) throw new Error('MFLOOR significance must be a non-zero numeric value');
-            return Math.floor(x / significance) * significance;
+            return Math.floor(x);
+          }
+          case 'TRUNC': {
+            if (args.length !== 1 && args.length !== 2) throw new Error('TRUNC requires one argument with optional digits: number[, num_digits]');
+            const x = parseFloat(args[0]);
+            if (!Number.isFinite(x)) return 0;
+            const digitsRaw = args.length === 2 ? Number(args[1]) : 0;
+            if (!Number.isFinite(digitsRaw)) throw new Error('TRUNC num_digits must be numeric');
+            const factor = Math.pow(10, Math.trunc(digitsRaw));
+            return Math.trunc(x * factor) / factor;
           }
           case 'VALUE': {
             if (args.length !== 1) throw new Error('VALUE requires exactly one argument');
@@ -705,8 +718,13 @@ export default class FormulaEngine {
             if (!Number.isFinite(n)) throw new Error('VALUE expects a numeric text');
             return n;
           }
-          case 'FLOOR':
-            return Math.floor(parseFloat(args[0]) || 0);
+          case 'FLOOR': {
+            // Salesforce FLOOR rounds down to the nearest integer, toward zero if negative
+            if (args.length !== 1) throw new Error('FLOOR requires exactly one argument');
+            const x = parseFloat(args[0]);
+            if (!Number.isFinite(x)) return 0;
+            return Math.trunc(x);
+          }
           case 'MOD': {
             if (args.length !== 2) throw new Error('MOD requires exactly two arguments: number and divisor');
             const x = parseFloat(args[0]);
@@ -760,10 +778,11 @@ export default class FormulaEngine {
             return d.getMilliseconds();
           }
           case 'CEILING': {
+            // Salesforce CEILING rounds up to the nearest integer, away from zero if negative
             if (args.length !== 1) throw new Error('CEILING requires exactly one argument');
             const x = parseFloat(args[0]);
             if (!Number.isFinite(x)) return 0;
-            return Math.ceil(x);
+            return x >= 0 ? Math.ceil(x) : Math.floor(x);
           }
           case 'MIN': {
             if (args.length < 1) throw new Error('MIN requires at least one argument');
@@ -816,6 +835,47 @@ export default class FormulaEngine {
             const v = args[0];
             if (v === null || v === undefined) return true;
             return String(v).trim() === '';
+          }
+          case 'ISNULL': {
+            if (args.length !== 1) throw new Error('ISNULL requires exactly one argument');
+            return args[0] === null || args[0] === undefined;
+          }
+          case 'INCLUDES': {
+            if (args.length !== 2) throw new Error('INCLUDES requires exactly two arguments: multiselect_picklist_field, text_literal');
+            const v = args[0];
+            if (v === null || v === undefined || String(v).trim() === '') return false;
+            const target = String(args[1] ?? '').trim();
+            return String(v).split(';').map(s => s.trim()).includes(target);
+          }
+          case 'REGEX': {
+            if (args.length !== 2) throw new Error('REGEX requires exactly two arguments: text, regex_text');
+            const text = args[0] == null ? '' : String(args[0]);
+            const pattern = args[1] == null ? '' : String(args[1]);
+            let re;
+            try {
+              // Salesforce matches the entire string (Java String.matches semantics)
+              re = new RegExp(`^(?:${pattern})$`);
+            } catch (e) {
+              throw new Error(`REGEX pattern is invalid: ${e.message}`);
+            }
+            return re.test(text);
+          }
+          case 'CASESAFEID': {
+            if (args.length !== 1) throw new Error('CASESAFEID requires exactly one argument: id');
+            const id = args[0] == null ? '' : String(args[0]).trim();
+            if (id.length === 18) return id;
+            if (id.length !== 15) throw new Error('CASESAFEID expects a 15-character ID');
+            const CHECK_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ012345';
+            let suffix = '';
+            for (let chunk = 0; chunk < 3; chunk++) {
+              let bits = 0;
+              for (let i = 0; i < 5; i++) {
+                const ch = id.charAt(chunk * 5 + i);
+                if (ch >= 'A' && ch <= 'Z') bits |= (1 << i);
+              }
+              suffix += CHECK_CHARS.charAt(bits);
+            }
+            return id + suffix;
           }
           case 'NOW': {
             if (args.length !== 0) throw new Error('NOW requires no arguments');
