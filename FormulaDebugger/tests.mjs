@@ -284,5 +284,55 @@ check('explainer describes functions in plain English', () => {
 check('explainer falls back for unknown functions', () =>
   eq(explainFormula(FormulaEngine.parse('VLOOKUP(A, B, C)')), 'Returns the result of VLOOKUP(A, B, C).'));
 
+// --- Static arity validation (Analyze-time checks) ---
+function arityErrors(formula) {
+  return FormulaEngine.collectArityErrors(FormulaEngine.parse(formula));
+}
+check('flags too many arguments', () => {
+  const errs = arityErrors('MCEILING(Amount, 4)');
+  eq(errs.length, 1);
+  eq(errs[0].message, 'MCEILING expects exactly 1 argument, but got 2');
+});
+check('flags too few arguments', () => {
+  const errs = arityErrors("IF(Amount > 1, 'yes')");
+  eq(errs.length, 1);
+  eq(errs[0].message, 'IF expects exactly 3 arguments, but got 2');
+});
+check('flags zero-argument functions called with arguments', () => {
+  eq(arityErrors('TODAY(1)')[0].message, 'TODAY expects exactly 0 arguments, but got 1');
+});
+check('flags CASE with an incomplete pair', () => {
+  // 5 args = expression + one pair + a dangling value with no result/default
+  const errs = arityErrors("CASE(Level, 'A', 1, 'B', 2)");
+  eq(errs.length, 1);
+  eq(errs[0].message.includes('value/result pairs'), true);
+  // 4 args (expression + pair + default) is the minimal valid shape
+  eq(arityErrors("CASE(Level, 'A', 1, 'B')").length, 0);
+});
+check('flags IMAGE with three arguments', () => {
+  eq(arityErrors("IMAGE('u', 'a', 50)")[0].message, 'IMAGE expects 2 or 4 arguments, but got 3');
+});
+check('flags AND below its minimum', () => {
+  eq(arityErrors('AND(1 = 1)')[0].message, 'AND expects at least 2 arguments, but got 1');
+});
+check('flags unsupported functions', () => {
+  eq(arityErrors('VLOOKUP(A, B, C)')[0].message, 'VLOOKUP is not supported by this tool');
+});
+check('finds errors nested inside expressions', () => {
+  const errs = arityErrors("IF(LEN(Name, 2) > 0, TRIM(), 'x')");
+  eq(errs.length, 2);
+  eq(errs[0].message, 'LEN expects exactly 1 argument, but got 2');
+  eq(errs[1].message, 'TRIM expects exactly 1 argument, but got 0');
+});
+check('accepts optional-argument ranges', () => {
+  eq(arityErrors("FIND('a', 'abc')").length, 0);
+  eq(arityErrors("FIND('a', 'abc', 2)").length, 0);
+  eq(arityErrors("FIND('a', 'abc', 2, 9)")[0].message, 'FIND expects between 2 and 3 arguments, but got 4');
+});
+check('valid formulas produce no arity errors', () => {
+  eq(arityErrors("IF(ISBLANK(Name), 'x', LEFT(Name, 3)) & TEXT(ROUND(Amount, 2))").length, 0);
+  eq(arityErrors("DISTANCE(GEOLOCATION(1, 2), GEOLOCATION(3, 4), 'km')").length, 0);
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

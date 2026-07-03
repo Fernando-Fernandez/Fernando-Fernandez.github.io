@@ -205,6 +205,23 @@ export default class FormulaUI {
     const container = doc.createElement('div');
     container.style.cssText = STYLE_CONTAINER;
 
+    // Static checks that need no field values: wrong argument counts and
+    // unsupported functions are flagged at Analyze time, not at Calculate
+    const arityErrors = FormulaEngine.collectArityErrors(ast);
+    if (arityErrors.length > 0) {
+      const box = doc.createElement('div');
+      box.style.cssText = `${STYLE_ERROR_BOX} margin-bottom: 15px;`;
+      const strong = doc.createElement('strong');
+      strong.textContent = 'Function problems found during analysis:';
+      box.appendChild(strong);
+      for (const e of arityErrors) {
+        const line = doc.createElement('div');
+        line.textContent = `• ${e.expression} — ${e.message}`;
+        box.appendChild(line);
+      }
+      container.appendChild(box);
+    }
+
     if (variables.length > 0) {
       const varsDiv = doc.createElement('div');
       varsDiv.style.cssText = STYLE_VARS_SECTION;
