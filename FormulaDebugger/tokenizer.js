@@ -1,20 +1,24 @@
 export default class Tokenizer {
     // Lightweight regex-based tokenizer for Salesforce formulas.
+    // Order matters: multi-character operators must precede their prefixes
+    // (&& before &, == before =, <= before <).
     static TOKEN_PATTERNS = [
         [/^\s+/, 'WHITESPACE'],
         [/^"[^"]*"/, 'DOUBLE_QUOTE_STRING'],
-        [/^\d+/, 'NUMBER'],
+        [/^(?:\d+(?:\.\d+)?|\.\d+)/, 'NUMBER'],
         [/^'[^']*'/, 'STRING'],
         [/^\/\/.*/, 'SINGLE_LINE_COMMENT'],
         [/^\/\*[\s\S]*?\*\//, 'MULTI_LINE_COMMENT'],
         [/^[+\-]/, 'ADDITIVE_OPERATOR'],
+        [/^&&/, 'AND'],
         [/^&/, 'CONCAT'],
+        [/^\|\|/, 'OR'],
+        [/^\^/, 'EXPONENT'],
         [/^[*\/]/, 'MULTIPLICATIVE_OPERATOR'],
         [/^[()]/, 'PARENTHESIS'],
         [/^[{}]/, 'BRACES'],
         [/^,/, 'COMMA'],
-        [/^&&/, 'AND'],
-        [/^\|\|/, 'OR'],
+        [/^==/, 'EQUAL'],
         [/^=/, 'EQUAL'],
         [/^!=/, 'NOT_EQUAL'],
         [/^<>/, 'NOT_EQUAL'],
@@ -22,8 +26,11 @@ export default class Tokenizer {
         [/^>=/, 'GREATER_THAN_OR_EQUAL'],
         [/^</, 'LESS_THAN'],
         [/^>/, 'GREATER_THAN'],
+        [/^TRUE\b/i, 'BOOLEAN'],
+        [/^FALSE\b/i, 'BOOLEAN'],
         [/^NULL\b/i, 'NULL'],
-        [/^[a-zA-Z_]\w*/, 'IDENTIFIER']
+        // Fields may be dotted paths (Account.Industry) or globals ($User.FirstName)
+        [/^[$a-zA-Z_]\w*(?:\.[$a-zA-Z_]\w*)*/, 'IDENTIFIER']
     ];
 
     initialize(inputString) {
