@@ -420,15 +420,24 @@ export default class FormulaEngine {
     return !isNaN(date.getTime()) || usWithTime.test(s);
   }
 
-  // Evaluate AST locally with provided variables
-  static calculate(ast, variables = {}) {
+  // Evaluate AST locally with provided variables.
+  // Pass a Map as `cache` to memoize per-node results (keyed by node identity),
+  // so callers that evaluate every node of a tree stay linear.
+  static calculate(ast, variables = {}, cache = null) {
     if (!ast) return null;
+    if (cache && cache.has(ast)) return cache.get(ast);
+    const result = this.computeNode(ast, variables, cache);
+    if (cache) cache.set(ast, result);
+    return result;
+  }
+
+  static computeNode(ast, variables, cache) {
     switch (ast.type) {
       case 'Function': {
         const name = (ast.name || '').toUpperCase();
         // Lazily-evaluated functions: only the branch actually taken runs,
         // so guarded expressions like IF(x = 0, 0, 1 / x) don't throw
-        const evalArg = (i) => this.calculate(ast.arguments[i], variables);
+        const evalArg = (i) => this.calculate(ast.arguments[i], variables, cache);
         switch (name) {
           case 'IF': {
             if (ast.arguments.length !== 3) throw new Error('IF requires exactly three arguments: condition, value_if_true, value_if_false');
@@ -457,7 +466,7 @@ export default class FormulaEngine {
             return evalArg(ast.arguments.length - 1);
           }
         }
-        const args = ast.arguments.map(arg => this.calculate(arg, variables));
+        const args = ast.arguments.map(arg => this.calculate(arg, variables, cache));
         switch (name) {
           case 'CONTAINS': {
             const text = String(args[0] || '');
@@ -1044,13 +1053,13 @@ export default class FormulaEngine {
       case OPERATOR_TYPE: {
         // Short-circuit logical operators: don't evaluate the right side unless needed
         if (ast.operator === '&&') {
-          return Boolean(this.calculate(ast.left, variables)) && Boolean(this.calculate(ast.right, variables));
+          return Boolean(this.calculate(ast.left, variables, cache)) && Boolean(this.calculate(ast.right, variables, cache));
         }
         if (ast.operator === '||') {
-          return Boolean(this.calculate(ast.left, variables)) || Boolean(this.calculate(ast.right, variables));
+          return Boolean(this.calculate(ast.left, variables, cache)) || Boolean(this.calculate(ast.right, variables, cache));
         }
-        const left = this.calculate(ast.left, variables);
-        const right = this.calculate(ast.right, variables);
+        const left = this.calculate(ast.left, variables, cache);
+        const right = this.calculate(ast.right, variables, cache);
         const leftDate = this.toDate(left);
         const rightDate = this.toDate(right);
         const leftTypeHint = ast.left && ast.left.resultType;

@@ -53,11 +53,27 @@ export default class FormulaUI {
       FormulaEngine.annotateTypes(ast, {}, {});
       FormulaUI.displayDataStructure(ast, doc);
     } catch (error) {
-      debugOutput.innerHTML = `
-        <div style="${STYLE_ERROR_BOX}">
-          <strong>Formula Analysis Error:</strong><br>${error.message}
-        </div>`;
+      // Build with textContent: the message echoes formula text, which must
+      // never be interpreted as HTML (formulas can arrive via share URLs)
+      debugOutput.innerHTML = '';
+      const errBox = doc.createElement('div');
+      errBox.style.cssText = STYLE_ERROR_BOX;
+      const strong = doc.createElement('strong');
+      strong.textContent = 'Formula Analysis Error:';
+      errBox.appendChild(strong);
+      errBox.appendChild(doc.createElement('br'));
+      errBox.appendChild(doc.createTextNode(error.message));
+      debugOutput.appendChild(errBox);
     }
+  }
+
+  // Render an evaluation result as display text
+  static formatValue(r) {
+    return (
+      r === null ? 'null' :
+      FormulaEngine.isDate(r) ? r.toLocaleString() :
+      (typeof r === 'number' && r % 1 !== 0 ? r.toFixed(6) : String(r))
+    );
   }
 
   // Build a Mermaid diagram string for the AST
@@ -364,6 +380,22 @@ export default class FormulaUI {
     const resultDiv = doc.getElementById('calculationResult');
     if (!resultDiv) return;
 
+    // All content goes in as text nodes, never markup: values and expressions
+    // echo user formula input, which must not be interpreted as HTML
+    const showBox = (ok) => {
+      resultDiv.style.display = 'block';
+      resultDiv.style.background = ok ? COLOR_SUCCESS_BG : COLOR_ERROR_BG;
+      resultDiv.style.borderColor = ok ? COLOR_SUCCESS : COLOR_ERROR;
+    };
+    const showLabeled = (label, text, ok) => {
+      resultDiv.innerHTML = '';
+      const strong = doc.createElement('strong');
+      strong.textContent = label;
+      resultDiv.appendChild(strong);
+      resultDiv.appendChild(doc.createTextNode(` ${text}`));
+      showBox(ok);
+    };
+
     try {
       const { values, types } = this.getVariableValues(ast, doc);
       const typedVars = this.coerceVariables(values, types);
@@ -373,37 +405,32 @@ export default class FormulaUI {
       const arithmeticErrors = FormulaEngine.collectArithmeticTypeErrors(ast);
       const typeErrors = [...comparisonErrors, ...arithmeticErrors];
       if (typeErrors.length > 0) {
-        const items = typeErrors
-          .map(e => `• ${e.expression} — ${e.leftType} ${e.operator} ${e.rightType}`)
-          .join('<br>');
-        resultDiv.innerHTML = `<strong>Type error:</strong><br>Operands must have compatible types.<br>${items}`;
-        resultDiv.style.display = 'block';
-        resultDiv.style.background = COLOR_ERROR_BG;
-        resultDiv.style.borderColor = COLOR_ERROR;
+        resultDiv.innerHTML = '';
+        const strong = doc.createElement('strong');
+        strong.textContent = 'Type error:';
+        resultDiv.appendChild(strong);
+        resultDiv.appendChild(doc.createTextNode(' Operands must have compatible types.'));
+        for (const e of typeErrors) {
+          const line = doc.createElement('div');
+          line.textContent = `• ${e.expression} — ${e.leftType} ${e.operator} ${e.rightType}`;
+          resultDiv.appendChild(line);
+        }
+        showBox(false);
         return;
       }
 
-      const result = FormulaEngine.calculate(ast, typedVars);
-      const displayResult = (
-        result === null ? 'null' :
-        FormulaEngine.isDate(result) ? result.toLocaleString() :
-        (typeof result === 'number' && result % 1 !== 0 ? result.toFixed(6) : result)
-      );
-      resultDiv.innerHTML = `<strong>Result:</strong> ${displayResult}`;
-      resultDiv.style.display = 'block';
-      resultDiv.style.background = COLOR_SUCCESS_BG;
-      resultDiv.style.borderColor = COLOR_SUCCESS;
+      // One shared cache: the root evaluation fills it, the steps tree reuses it
+      const cache = new Map();
+      const result = FormulaEngine.calculate(ast, typedVars, cache);
+      showLabeled('Result:', this.formatValue(result), true);
 
-      await this.updateStepsWithCalculation(ast, typedVars, doc, types);
+      await this.updateStepsWithCalculation(ast, typedVars, doc, types, cache);
     } catch (error) {
-      resultDiv.innerHTML = `<strong>Error:</strong> ${error.message}`;
-      resultDiv.style.display = 'block';
-      resultDiv.style.background = COLOR_ERROR_BG;
-      resultDiv.style.borderColor = COLOR_ERROR;
+      showLabeled('Error:', error.message, false);
     }
   }
 
-  static async updateStepsWithCalculation(ast, variables, doc, types = {}) {
+  static async updateStepsWithCalculation(ast, variables, doc, types = {}, cache = null) {
     const stepsList = doc.getElementById('stepsList');
     if (!stepsList) return;
 
@@ -411,25 +438,8 @@ export default class FormulaUI {
     stepsList.innerHTML = '';
 
     // Rebuild hierarchical tree including computed results
-    const tree = this.buildAstTree(doc, ast, { includeResults: true, variables });
+    const tree = this.buildAstTree(doc, ast, { includeResults: true, variables, cache: cache || new Map() });
     stepsList.appendChild(tree);
-
-    // Reflect final result (root evaluation)
-    const resultDiv = doc.getElementById('calculationResult');
-    if (resultDiv) {
-      let finalResult;
-      try { finalResult = FormulaEngine.calculate(ast, variables); }
-      catch (error) { finalResult = `Error: ${error.message}`; }
-      const displayResult = (
-        finalResult === null ? 'null' :
-        FormulaEngine.isDate(finalResult) ? finalResult.toLocaleString() :
-        (typeof finalResult === 'number' && finalResult % 1 !== 0 ? finalResult.toFixed(6) : finalResult)
-      );
-      resultDiv.innerHTML = `<strong>Result:</strong> ${displayResult}`;
-      resultDiv.style.display = 'block';
-      resultDiv.style.background = COLOR_SUCCESS_BG;
-      resultDiv.style.borderColor = COLOR_SUCCESS;
-    }
   }
 
   static getVariableValues(ast, doc) {
@@ -484,27 +494,9 @@ export default class FormulaUI {
 }
 
 // Helper: Build a nested table/td tree following the AST hierarchy
-// Options: { includeResults?: boolean, variables?: object }
+// Options: { includeResults?: boolean, variables?: object, cache?: Map }
 FormulaUI.buildAstTree = function(doc, node, options = {}) {
-  const { includeResults = false, variables = {} } = options;
-
-  const makeNodeLabel = (n) => {
-    const expr = FormulaEngine.rebuild(n);
-    const t = (n && n.resultType) ? n.resultType : 'Unknown';
-    let label = `${expr}\n${t}`;
-    if (includeResults) {
-      let r;
-      try { r = FormulaEngine.calculate(n, variables); }
-      catch (e) { r = `Error: ${e.message}`; }
-      const display = (
-        r === null ? 'null' :
-        FormulaEngine.isDate(r) ? r.toLocaleString() :
-        (typeof r === 'number' && r % 1 !== 0 ? r.toFixed(6) : r)
-      );
-      label += `\n= ${display}`;
-    }
-    return label;
-  };
+  const { includeResults = false, variables = {}, cache = new Map() } = options;
 
   // Helper: determine if a node is just a literal value (not an expression)
   const isValueNode = (n) => !!n && n.type === 'Literal';
@@ -526,15 +518,10 @@ FormulaUI.buildAstTree = function(doc, node, options = {}) {
 
     if (includeResults) {
       let r;
-      try { r = FormulaEngine.calculate(n, variables); } catch (e) { r = `Error: ${e.message}`; }
-      const display = (
-        r === null ? 'null' :
-        FormulaEngine.isDate(r) ? r.toLocaleString() :
-        (typeof r === 'number' && r % 1 !== 0 ? r.toFixed(6) : r)
-      );
+      try { r = FormulaEngine.calculate(n, variables, cache); } catch (e) { r = `Error: ${e.message}`; }
       const res = doc.createElement('span');
       res.style.cssText = STYLE_TREE_RESULT;
-      res.textContent = `= ${display}`;
+      res.textContent = `= ${FormulaUI.formatValue(r)}`;
       box.appendChild(res);
     }
     return box;

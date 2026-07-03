@@ -194,5 +194,18 @@ check('MCEILING/MFLOOR use math semantics', () => {
   eq(evalFormula('MFLOOR(-2.5)'), -3);
 });
 
+// --- Memoized evaluation ---
+check('calculate accepts a per-node memoization cache', () => {
+  const ast = FormulaEngine.parse('(Amount + 1) * (Amount + 1)');
+  const cache = new Map();
+  eq(FormulaEngine.calculate(ast, { Amount: 2 }, cache), 9);
+  eq(cache.size > 0, true);
+  // Cached nodes return the same results on re-evaluation
+  eq(FormulaEngine.calculate(ast, { Amount: 2 }, cache), 9);
+  eq(FormulaEngine.calculate(ast.left, { Amount: 2 }, cache), 3);
+});
+check('calculate without a cache is unchanged', () =>
+  eq(FormulaEngine.calculate(FormulaEngine.parse('2 + 3')), 5));
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
