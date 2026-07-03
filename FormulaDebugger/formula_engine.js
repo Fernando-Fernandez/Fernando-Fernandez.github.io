@@ -141,6 +141,133 @@ export default class FormulaEngine {
     return errors;
   }
 
+  // Argument-count rules for every supported function, so problems surface at
+  // Analyze time instead of failing later inside calculate().
+  // Shapes: {min,max} range (max omitted = unbounded), {oneOf} exact choices,
+  // {casePairs} for CASE's expression + value/result pairs + default.
+  static FUNCTION_ARITY = {
+    IF: { min: 3, max: 3 },
+    AND: { min: 2 },
+    OR: { min: 2 },
+    NOT: { min: 1, max: 1 },
+    CASE: { casePairs: true },
+    ISPICKVAL: { min: 2, max: 2 },
+    ISBLANK: { min: 1, max: 1 },
+    ISNULL: { min: 1, max: 1 },
+    ISNUMBER: { min: 1, max: 1 },
+    INCLUDES: { min: 2, max: 2 },
+    REGEX: { min: 2, max: 2 },
+    CONTAINS: { min: 2, max: 2 },
+    BEGINS: { min: 2, max: 2 },
+    FIND: { min: 2, max: 3 },
+    MID: { min: 3, max: 3 },
+    LEFT: { min: 2, max: 2 },
+    RIGHT: { min: 2, max: 2 },
+    TRIM: { min: 1, max: 1 },
+    LEN: { min: 1, max: 1 },
+    TEXT: { min: 1, max: 1 },
+    VALUE: { min: 1, max: 1 },
+    LOWER: { min: 1, max: 1 },
+    UPPER: { min: 1, max: 1 },
+    REVERSE: { min: 1, max: 1 },
+    LPAD: { min: 2, max: 3 },
+    RPAD: { min: 2, max: 3 },
+    SUBSTITUTE: { min: 3, max: 4 },
+    BLANKVALUE: { min: 2, max: 2 },
+    NULLVALUE: { min: 2, max: 2 },
+    CASESAFEID: { min: 1, max: 1 },
+    ABS: { min: 1, max: 1 },
+    EXP: { min: 1, max: 1 },
+    LN: { min: 1, max: 1 },
+    LOG: { min: 1, max: 2 },
+    SQRT: { min: 1, max: 1 },
+    ROUND: { min: 2, max: 2 },
+    TRUNC: { min: 1, max: 2 },
+    CEILING: { min: 1, max: 1 },
+    FLOOR: { min: 1, max: 1 },
+    MCEILING: { min: 1, max: 1 },
+    MFLOOR: { min: 1, max: 1 },
+    MOD: { min: 2, max: 2 },
+    MIN: { min: 1 },
+    MAX: { min: 1 },
+    NOW: { min: 0, max: 0 },
+    TODAY: { min: 0, max: 0 },
+    TIMENOW: { min: 0, max: 0 },
+    YEAR: { min: 1, max: 1 },
+    MONTH: { min: 1, max: 1 },
+    DAY: { min: 1, max: 1 },
+    WEEKDAY: { min: 1, max: 1 },
+    HOUR: { min: 1, max: 1 },
+    MINUTE: { min: 1, max: 1 },
+    SECOND: { min: 1, max: 1 },
+    MILLISECOND: { min: 1, max: 1 },
+    DATE: { min: 3, max: 3 },
+    DATEVALUE: { min: 1, max: 1 },
+    DATETIMEVALUE: { min: 1, max: 1 },
+    TIMEVALUE: { min: 1, max: 1 },
+    ADDMONTHS: { min: 2, max: 2 },
+    BR: { min: 0, max: 0 },
+    HTMLENCODE: { min: 1, max: 1 },
+    JSENCODE: { min: 1, max: 1 },
+    JSINHTMLENCODE: { min: 1, max: 1 },
+    URLENCODE: { min: 1, max: 1 },
+    HYPERLINK: { min: 2, max: 3 },
+    IMAGE: { oneOf: [2, 4] },
+    GEOLOCATION: { min: 2, max: 2 },
+    DISTANCE: { min: 3, max: 3 },
+  };
+
+  // Static validation: wrong argument counts and unsupported functions,
+  // detectable from the AST alone before any field values exist
+  static collectArityErrors(ast) {
+    const errors = [];
+    (function walk(node) {
+      if (!node) return;
+      if (node.type === 'Function') {
+        const name = (node.name || '').toUpperCase();
+        const spec = FormulaEngine.FUNCTION_ARITY[name];
+        const count = (node.arguments || []).length;
+        if (!spec) {
+          errors.push({
+            name: node.name,
+            expression: FormulaEngine.rebuild(node),
+            message: `${name} is not supported by this tool`,
+          });
+        } else {
+          let ok;
+          let expected;
+          if (spec.casePairs) {
+            ok = count >= 4 && count % 2 === 0;
+            expected = 'an expression, value/result pairs, and a default result';
+          } else if (spec.oneOf) {
+            ok = spec.oneOf.includes(count);
+            expected = `${spec.oneOf.join(' or ')} arguments`;
+          } else {
+            const min = spec.min ?? 0;
+            const max = spec.max ?? Infinity;
+            ok = count >= min && count <= max;
+            const plural = (n) => `${n} argument${n === 1 ? '' : 's'}`;
+            if (min === max) expected = `exactly ${plural(min)}`;
+            else if (max === Infinity) expected = `at least ${plural(min)}`;
+            else expected = `between ${min} and ${max} arguments`;
+          }
+          if (!ok) {
+            errors.push({
+              name: node.name,
+              expression: FormulaEngine.rebuild(node),
+              message: `${name} expects ${expected}, but got ${count}`,
+            });
+          }
+        }
+        (node.arguments || []).forEach(walk);
+      } else if (node.type === OPERATOR_TYPE) {
+        walk(node.left);
+        walk(node.right);
+      }
+    })(ast);
+    return errors;
+  }
+
   // Annotate nodes with resultType; optionally honor user-provided sample types/values
   static annotateTypes(ast, sampleVariables = {}, sampleTypes = {}) {
     const infer = (node) => {
@@ -246,6 +373,7 @@ export default class FormulaEngine {
             case 'MFLOOR':
             case 'FLOOR':
             case 'MOD':
+            case 'DISTANCE':
             case 'MONTH':
             case 'DAY':
             case 'WEEKDAY':
@@ -274,6 +402,13 @@ export default class FormulaEngine {
             case 'LPAD':
             case 'RPAD':
             case 'CASESAFEID':
+            case 'BR':
+            case 'HTMLENCODE':
+            case 'JSENCODE':
+            case 'JSINHTMLENCODE':
+            case 'URLENCODE':
+            case 'HYPERLINK':
+            case 'IMAGE':
             case 'SUBSTITUTE':
               node.resultType = this.RESULT_TYPE.Text; return node.resultType;
             case 'LEN': node.resultType = this.RESULT_TYPE.Number; return node.resultType;
@@ -395,6 +530,27 @@ export default class FormulaEngine {
     return iso.replace(/\.\d{3}Z$/, 'Z');
   }
   static isDate(value) { return value instanceof Date; }
+  static isGeolocation(value) {
+    return !!value && typeof value === 'object'
+      && Number.isFinite(value.latitude) && Number.isFinite(value.longitude);
+  }
+  static htmlEncode(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+  static jsEncode(s) {
+    return String(s)
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r')
+      .replace(/\t/g, '\\t');
+  }
   static isDateString(value) {
     if (typeof value !== 'string' || value.trim() === '') return false;
     const s = value.trim();
@@ -868,6 +1024,71 @@ export default class FormulaEngine {
               throw new Error(`REGEX pattern is invalid: ${e.message}`);
             }
             return re.test(text);
+          }
+          case 'BR': {
+            if (args.length !== 0) throw new Error('BR requires no arguments');
+            return '\n';
+          }
+          case 'HTMLENCODE': {
+            if (args.length !== 1) throw new Error('HTMLENCODE requires exactly one argument');
+            return this.htmlEncode(args[0] == null ? '' : args[0]);
+          }
+          case 'JSENCODE': {
+            if (args.length !== 1) throw new Error('JSENCODE requires exactly one argument');
+            return this.jsEncode(args[0] == null ? '' : args[0]);
+          }
+          case 'JSINHTMLENCODE': {
+            if (args.length !== 1) throw new Error('JSINHTMLENCODE requires exactly one argument');
+            return this.htmlEncode(this.jsEncode(args[0] == null ? '' : args[0]));
+          }
+          case 'URLENCODE': {
+            if (args.length !== 1) throw new Error('URLENCODE requires exactly one argument');
+            // Form-urlencoded style, matching Salesforce: spaces become +
+            return encodeURIComponent(args[0] == null ? '' : String(args[0])).replace(/%20/g, '+');
+          }
+          case 'HYPERLINK': {
+            if (args.length !== 2 && args.length !== 3) throw new Error('HYPERLINK requires two or three arguments: url, friendly_name[, target]');
+            const url = args[0] == null ? '' : String(args[0]);
+            const friendly = args[1] == null ? '' : String(args[1]);
+            const target = args.length === 3 ? ` target="${args[2] == null ? '' : String(args[2])}"` : '';
+            return `<a href="${url}"${target}>${friendly}</a>`;
+          }
+          case 'IMAGE': {
+            if (args.length !== 2 && args.length !== 4) throw new Error('IMAGE requires two or four arguments: image_url, alternate_text[, height, width]');
+            const url = args[0] == null ? '' : String(args[0]);
+            const alt = args[1] == null ? '' : String(args[1]);
+            const dims = args.length === 4 ? ` height="${args[2]}" width="${args[3]}"` : '';
+            return `<img src="${url}" alt="${alt}"${dims}>`;
+          }
+          case 'GEOLOCATION': {
+            if (args.length !== 2) throw new Error('GEOLOCATION requires exactly two arguments: latitude, longitude');
+            const lat = parseFloat(args[0]);
+            const lon = parseFloat(args[1]);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) throw new Error('GEOLOCATION latitude and longitude must be numeric');
+            return { latitude: lat, longitude: lon };
+          }
+          case 'DISTANCE': {
+            if (args.length !== 3) throw new Error('DISTANCE requires exactly three arguments: location1, location2, unit');
+            const toLoc = (v) => {
+              if (this.isGeolocation(v)) return v;
+              if (typeof v === 'string') {
+                const m = v.trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+                if (m) return { latitude: parseFloat(m[1]), longitude: parseFloat(m[2]) };
+              }
+              return null;
+            };
+            const locA = toLoc(args[0]);
+            const locB = toLoc(args[1]);
+            if (!locA || !locB) throw new Error("DISTANCE expects geolocation values: use GEOLOCATION(lat, lon) or a 'lat,lon' field value");
+            const unit = String(args[2] ?? '').trim().toLowerCase();
+            if (unit !== 'mi' && unit !== 'km') throw new Error("DISTANCE unit must be 'mi' or 'km'");
+            const R = unit === 'mi' ? 3958.7613 : 6371.0088; // mean Earth radius
+            const rad = (deg) => deg * Math.PI / 180;
+            const dLat = rad(locB.latitude - locA.latitude);
+            const dLon = rad(locB.longitude - locA.longitude);
+            const h = Math.sin(dLat / 2) ** 2
+              + Math.cos(rad(locA.latitude)) * Math.cos(rad(locB.latitude)) * Math.sin(dLon / 2) ** 2;
+            return 2 * R * Math.asin(Math.sqrt(h));
           }
           case 'CASESAFEID': {
             if (args.length !== 1) throw new Error('CASESAFEID requires exactly one argument: id');
