@@ -1,5 +1,6 @@
 import FormulaEngine from './formula_engine.js';
 import { openSvgDiagram as openSvgDiagramWindow } from './formula_svg.js';
+import { explainFormula } from './formula_explain.js';
 
 // CSS style constants
 const STYLE_ERROR_BOX = 'color: red; padding: 10px; background: #ffe8e8; border: 1px solid #f44336; border-radius: 4px;';
@@ -12,6 +13,9 @@ const STYLE_FIELD_INPUT = 'flex: 1; padding: 4px 8px; border: 1px solid #ccc; bo
 const STYLE_TYPE_SELECT = 'padding: 4px 6px; border: 1px solid #ccc; border-radius: 3px;';
 const STYLE_NOW_HELPER = 'font-size: 11px; color: #666;';
 const STYLE_NULL_LABEL = 'display: flex; align-items: center; gap: 4px; font-size: 12px; color: #57606a; white-space: nowrap;';
+const STYLE_EXPLAIN_BOX = 'margin: 12px 0; padding: 8px 12px; background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px;';
+const STYLE_EXPLAIN_SUMMARY = 'cursor: pointer; font-weight: bold; font-size: 13px;';
+const STYLE_EXPLAIN_TEXT = 'font-family: inherit; font-size: 13px; line-height: 1.6; white-space: pre-wrap; margin: 8px 0 0;';
 const STYLE_PRIMARY_BUTTON = 'padding: 8px 16px; background: #007cba; color: white; border: none; border-radius: 4px; cursor: pointer;';
 const STYLE_SECONDARY_BUTTON = 'padding: 8px 16px; background: #555; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 8px;';
 const STYLE_RESULT_BOX = 'margin: 10px 0; padding: 10px; background: #e8f5e8; border: 1px solid #4caf50; border-radius: 4px; display: none;';
@@ -73,6 +77,7 @@ export default class FormulaUI {
     return (
       r === null ? 'null' :
       FormulaEngine.isDate(r) ? r.toLocaleString() :
+      FormulaEngine.isGeolocation(r) ? `${r.latitude}, ${r.longitude}` :
       (typeof r === 'number' && r % 1 !== 0 ? r.toFixed(6) : String(r))
     );
   }
@@ -362,6 +367,23 @@ export default class FormulaUI {
       resultDiv.style.cssText = STYLE_RESULT_BOX;
       container.appendChild(resultDiv);
     }
+
+    // Plain-English explanation (collapsible, safe text rendering)
+    const explainDetails = doc.createElement('details');
+    explainDetails.style.cssText = STYLE_EXPLAIN_BOX;
+    const explainSummary = doc.createElement('summary');
+    explainSummary.style.cssText = STYLE_EXPLAIN_SUMMARY;
+    explainSummary.textContent = 'Explain this formula';
+    explainDetails.appendChild(explainSummary);
+    const explainText = doc.createElement('pre');
+    explainText.style.cssText = STYLE_EXPLAIN_TEXT;
+    try {
+      explainText.textContent = explainFormula(ast);
+    } catch (e) {
+      explainText.textContent = `Unable to explain this formula: ${e.message}`;
+    }
+    explainDetails.appendChild(explainText);
+    container.appendChild(explainDetails);
 
     if (steps.length > 0) {
       const stepsList = doc.createElement('div');

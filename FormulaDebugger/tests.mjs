@@ -2,6 +2,7 @@
 // Run with: node tests.mjs
 import FormulaEngine from './formula_engine.js';
 import FormulaUI from './formula_ui.js';
+import { explainFormula } from './formula_explain.js';
 
 let passed = 0;
 let failed = 0;
@@ -219,6 +220,69 @@ check('null field values flow through NULLVALUE and ISNULL', () => {
   eq(evalFormula('ISNULL(X)', { X: null }), true);
   eq(evalFormula('ISBLANK(X)', { X: null }), true);
 });
+
+// --- Encoding and markup functions ---
+check('BR returns a line break', () => eq(evalFormula("'a' & BR() & 'b'"), 'a\nb'));
+check('HTMLENCODE', () =>
+  eq(evalFormula("HTMLENCODE('<a & \"b\">')"), '&lt;a &amp; &quot;b&quot;&gt;'));
+check('JSENCODE', () =>
+  eq(evalFormula("JSENCODE('he said \"hi\"')"), 'he said \\"hi\\"'));
+check('JSINHTMLENCODE', () =>
+  eq(evalFormula('JSINHTMLENCODE("a\'b")'), 'a\\&#39;b'));
+check('URLENCODE uses form encoding', () =>
+  eq(evalFormula("URLENCODE('a b&c')"), 'a+b%26c'));
+check('HYPERLINK builds an anchor', () => {
+  eq(evalFormula("HYPERLINK('https://example.com', 'Example')"), '<a href="https://example.com">Example</a>');
+  eq(evalFormula("HYPERLINK('https://example.com', 'Example', '_blank')"), '<a href="https://example.com" target="_blank">Example</a>');
+});
+check('IMAGE builds an img tag', () => {
+  eq(evalFormula("IMAGE('https://x/y.png', 'pic')"), '<img src="https://x/y.png" alt="pic">');
+  eq(evalFormula("IMAGE('https://x/y.png', 'pic', 50, 100)"), '<img src="https://x/y.png" alt="pic" height="50" width="100">');
+});
+
+// --- Geolocation ---
+function approx(actual, expected, tolerance) {
+  if (typeof actual !== 'number' || Math.abs(actual - expected) > tolerance) {
+    throw new Error(`expected ~${expected} (±${tolerance}), got ${actual}`);
+  }
+}
+check('DISTANCE between GEOLOCATION points (SF to LA)', () => {
+  approx(evalFormula("DISTANCE(GEOLOCATION(37.7749, -122.4194), GEOLOCATION(34.0522, -118.2437), 'mi')"), 347.4, 2);
+  approx(evalFormula("DISTANCE(GEOLOCATION(37.7749, -122.4194), GEOLOCATION(34.0522, -118.2437), 'km')"), 559, 3);
+});
+check("DISTANCE accepts 'lat,lon' field values", () =>
+  approx(evalFormula("DISTANCE(Location__c, GEOLOCATION(34.0522, -118.2437), 'km')", { Location__c: '37.7749,-122.4194' }), 559, 3));
+check('DISTANCE rejects unknown units', () => {
+  let threw = false;
+  try { evalFormula("DISTANCE(GEOLOCATION(0, 0), GEOLOCATION(1, 1), 'ft')"); } catch (_) { threw = true; }
+  eq(threw, true);
+});
+
+// --- Plain-English explainer ---
+check('explainer renders IF as an indented block', () =>
+  eq(explainFormula(FormulaEngine.parse("IF(Amount > 1000, 'High', 'Low')")),
+    'If Amount is greater than 1000:\n  return "High"\nOtherwise:\n  return "Low"'));
+check('explainer renders CASE as an indented block', () =>
+  eq(explainFormula(FormulaEngine.parse("CASE(Level, 'A', 1, 'B', 2, 0)")),
+    'Check Level:\n  when it is "A": return 1\n  when it is "B": return 2\n  otherwise: return 0'));
+check('explainer handles non-branching formulas', () =>
+  eq(explainFormula(FormulaEngine.parse('Amount * 2')), 'Returns Amount times 2.'));
+check('explainer parenthesizes nested operator phrases', () => {
+  const text = explainFormula(FormulaEngine.parse("IF((Amount + 50) >= 100 && ISBLANK(Name), 'OK', 'NO')"));
+  eq(text.includes('(Amount plus 50) is at least 100'), true);
+  eq(text.includes('Name is blank'), true);
+});
+check('explainer nests IF inside IF', () => {
+  const text = explainFormula(FormulaEngine.parse("IF(A > 1, IF(B > 2, 'x', 'y'), 'z')"));
+  eq(text,
+    'If A is greater than 1:\n  If B is greater than 2:\n    return "x"\n  Otherwise:\n    return "y"\nOtherwise:\n  return "z"');
+});
+check('explainer describes functions in plain English', () => {
+  const text = explainFormula(FormulaEngine.parse('ROUND(Amount / 3, 2)'));
+  eq(text, 'Returns (Amount divided by 3) rounded to 2 decimal places.');
+});
+check('explainer falls back for unknown functions', () =>
+  eq(explainFormula(FormulaEngine.parse('VLOOKUP(A, B, C)')), 'Returns the result of VLOOKUP(A, B, C).'));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

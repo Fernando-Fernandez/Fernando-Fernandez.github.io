@@ -1,19 +1,12 @@
-BR
+Not implemented (need org/record context or Visualforce, cannot be simulated client-side):
 CURRENCYRATE
-DISTANCE
-GEOLOCATION
 GETRECORDIDS
 GETSESSIONID
-HTMLENCODE
-HYPERLINK
-IMAGE
 IMAGEPROXYURL
 INCLUDE
 ISCHANGED
 ISCLONE
 ISNEW
-JSENCODE
-JSINHTMLENCODE
 JUNCTIONIDLIST
 LINKTO
 PARENTGROUPVAL
@@ -21,7 +14,6 @@ PREDICT
 PREVGROUPVAL
 PRIORVALUE
 REQUIRESCRIPT
-URLENCODE
 URLFOR
 VLOOKUP
 
@@ -30,3 +22,4 @@ TIMENOW needs to return time instead of datetime
 ROUND/CEILING/FLOOR/MCEILING/MFLOOR were aligned to documented Salesforce
 semantics (half away from zero; CEILING away from zero when negative; FLOOR
 toward zero; MCEILING/MFLOOR single-argument math versions) - spot-check in an org
+URLENCODE encodes spaces as + (Java URLEncoder style); verify edge characters

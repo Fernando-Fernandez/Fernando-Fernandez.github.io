@@ -246,6 +246,7 @@ export default class FormulaEngine {
             case 'MFLOOR':
             case 'FLOOR':
             case 'MOD':
+            case 'DISTANCE':
             case 'MONTH':
             case 'DAY':
             case 'WEEKDAY':
@@ -274,6 +275,13 @@ export default class FormulaEngine {
             case 'LPAD':
             case 'RPAD':
             case 'CASESAFEID':
+            case 'BR':
+            case 'HTMLENCODE':
+            case 'JSENCODE':
+            case 'JSINHTMLENCODE':
+            case 'URLENCODE':
+            case 'HYPERLINK':
+            case 'IMAGE':
             case 'SUBSTITUTE':
               node.resultType = this.RESULT_TYPE.Text; return node.resultType;
             case 'LEN': node.resultType = this.RESULT_TYPE.Number; return node.resultType;
@@ -395,6 +403,27 @@ export default class FormulaEngine {
     return iso.replace(/\.\d{3}Z$/, 'Z');
   }
   static isDate(value) { return value instanceof Date; }
+  static isGeolocation(value) {
+    return !!value && typeof value === 'object'
+      && Number.isFinite(value.latitude) && Number.isFinite(value.longitude);
+  }
+  static htmlEncode(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+  static jsEncode(s) {
+    return String(s)
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r')
+      .replace(/\t/g, '\\t');
+  }
   static isDateString(value) {
     if (typeof value !== 'string' || value.trim() === '') return false;
     const s = value.trim();
@@ -868,6 +897,71 @@ export default class FormulaEngine {
               throw new Error(`REGEX pattern is invalid: ${e.message}`);
             }
             return re.test(text);
+          }
+          case 'BR': {
+            if (args.length !== 0) throw new Error('BR requires no arguments');
+            return '\n';
+          }
+          case 'HTMLENCODE': {
+            if (args.length !== 1) throw new Error('HTMLENCODE requires exactly one argument');
+            return this.htmlEncode(args[0] == null ? '' : args[0]);
+          }
+          case 'JSENCODE': {
+            if (args.length !== 1) throw new Error('JSENCODE requires exactly one argument');
+            return this.jsEncode(args[0] == null ? '' : args[0]);
+          }
+          case 'JSINHTMLENCODE': {
+            if (args.length !== 1) throw new Error('JSINHTMLENCODE requires exactly one argument');
+            return this.htmlEncode(this.jsEncode(args[0] == null ? '' : args[0]));
+          }
+          case 'URLENCODE': {
+            if (args.length !== 1) throw new Error('URLENCODE requires exactly one argument');
+            // Form-urlencoded style, matching Salesforce: spaces become +
+            return encodeURIComponent(args[0] == null ? '' : String(args[0])).replace(/%20/g, '+');
+          }
+          case 'HYPERLINK': {
+            if (args.length !== 2 && args.length !== 3) throw new Error('HYPERLINK requires two or three arguments: url, friendly_name[, target]');
+            const url = args[0] == null ? '' : String(args[0]);
+            const friendly = args[1] == null ? '' : String(args[1]);
+            const target = args.length === 3 ? ` target="${args[2] == null ? '' : String(args[2])}"` : '';
+            return `<a href="${url}"${target}>${friendly}</a>`;
+          }
+          case 'IMAGE': {
+            if (args.length !== 2 && args.length !== 4) throw new Error('IMAGE requires two or four arguments: image_url, alternate_text[, height, width]');
+            const url = args[0] == null ? '' : String(args[0]);
+            const alt = args[1] == null ? '' : String(args[1]);
+            const dims = args.length === 4 ? ` height="${args[2]}" width="${args[3]}"` : '';
+            return `<img src="${url}" alt="${alt}"${dims}>`;
+          }
+          case 'GEOLOCATION': {
+            if (args.length !== 2) throw new Error('GEOLOCATION requires exactly two arguments: latitude, longitude');
+            const lat = parseFloat(args[0]);
+            const lon = parseFloat(args[1]);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) throw new Error('GEOLOCATION latitude and longitude must be numeric');
+            return { latitude: lat, longitude: lon };
+          }
+          case 'DISTANCE': {
+            if (args.length !== 3) throw new Error('DISTANCE requires exactly three arguments: location1, location2, unit');
+            const toLoc = (v) => {
+              if (this.isGeolocation(v)) return v;
+              if (typeof v === 'string') {
+                const m = v.trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+                if (m) return { latitude: parseFloat(m[1]), longitude: parseFloat(m[2]) };
+              }
+              return null;
+            };
+            const locA = toLoc(args[0]);
+            const locB = toLoc(args[1]);
+            if (!locA || !locB) throw new Error("DISTANCE expects geolocation values: use GEOLOCATION(lat, lon) or a 'lat,lon' field value");
+            const unit = String(args[2] ?? '').trim().toLowerCase();
+            if (unit !== 'mi' && unit !== 'km') throw new Error("DISTANCE unit must be 'mi' or 'km'");
+            const R = unit === 'mi' ? 3958.7613 : 6371.0088; // mean Earth radius
+            const rad = (deg) => deg * Math.PI / 180;
+            const dLat = rad(locB.latitude - locA.latitude);
+            const dLon = rad(locB.longitude - locA.longitude);
+            const h = Math.sin(dLat / 2) ** 2
+              + Math.cos(rad(locA.latitude)) * Math.cos(rad(locB.latitude)) * Math.sin(dLon / 2) ** 2;
+            return 2 * R * Math.asin(Math.sqrt(h));
           }
           case 'CASESAFEID': {
             if (args.length !== 1) throw new Error('CASESAFEID requires exactly one argument: id');
