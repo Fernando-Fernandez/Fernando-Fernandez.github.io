@@ -50,6 +50,9 @@ const COLOR_ERROR = '#f44336';
 const COLOR_SUCCESS_BG = '#e8f5e8';
 const COLOR_SUCCESS = '#4caf50';
 
+const STYLE_WARNING_BOX = 'color: #7a5900; padding: 10px; background: #fff8e6; border: 1px solid #d4a72c; border-radius: 4px; margin-bottom: 15px;';
+const STYLE_WARNING_BUTTON = 'padding: 4px 10px; background: #d4a72c; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-top: 8px;';
+
 export default class FormulaUI {
   // Entry point: parse the formula and render the UI
   static run(doc = (typeof window !== 'undefined' ? window.document : null)) {
@@ -62,6 +65,10 @@ export default class FormulaUI {
       return;
     }
 
+    // Warn about invisible characters and curly quotes before anything else:
+    // the tokenizer tolerates them, but Salesforce itself rejects them
+    const artifacts = FormulaEngine.collectPasteArtifacts(formula);
+
     try {
       if (!formula || formula.trim() === '') {
         debugOutput.innerText = 'No formula to analyze';
@@ -69,11 +76,14 @@ export default class FormulaUI {
       }
       const ast = FormulaEngine.parse(formula.trim());
       FormulaEngine.annotateTypes(ast, {}, {});
-      FormulaUI.displayDataStructure(ast, doc);
+      FormulaUI.displayDataStructure(ast, doc, artifacts);
     } catch (error) {
       // Build with textContent: the message echoes formula text, which must
       // never be interpreted as HTML (formulas can arrive via share URLs)
       debugOutput.innerHTML = '';
+      if (artifacts.length > 0) {
+        debugOutput.appendChild(FormulaUI.buildPasteArtifactWarning(doc, artifacts));
+      }
       const errBox = doc.createElement('div');
       errBox.style.cssText = STYLE_ERROR_BOX;
       const strong = doc.createElement('strong');
@@ -83,6 +93,52 @@ export default class FormulaUI {
       errBox.appendChild(doc.createTextNode(error.message));
       debugOutput.appendChild(errBox);
     }
+  }
+
+  // Amber warning listing copy-paste artifacts, with a one-click cleanup
+  static buildPasteArtifactWarning(doc, artifacts) {
+    const box = doc.createElement('div');
+    box.style.cssText = STYLE_WARNING_BOX;
+    const strong = doc.createElement('strong');
+    strong.textContent = 'Copy-paste artifacts found in this formula:';
+    box.appendChild(strong);
+
+    // Group identical characters: "2 × zero-width space (U+200B) at positions 12, 40"
+    const groups = new Map();
+    for (const a of artifacts) {
+      const key = `${a.name} (${a.codePoint})`;
+      if (!groups.has(key)) groups.set(key, { ...a, positions: [] });
+      groups.get(key).positions.push(a.position);
+    }
+    for (const g of groups.values()) {
+      const line = doc.createElement('div');
+      const count = g.positions.length;
+      const what = g.type === 'smartQuote' ? `curly quote ${g.char} (${g.codePoint})` : `${g.name} (${g.codePoint})`;
+      const handling = g.type === 'smartQuote' ? 'treated as a straight quote' : 'ignored';
+      line.textContent = `• ${count > 1 ? `${count} × ` : ''}${what} at position${count > 1 ? 's' : ''} ${g.positions.join(', ')} — ${handling}`;
+      box.appendChild(line);
+    }
+
+    const note = doc.createElement('div');
+    note.style.cssText = 'margin-top: 6px;';
+    note.textContent = 'This tool tolerates these characters, but Salesforce will reject them. Clean the formula before saving it in Salesforce.';
+    box.appendChild(note);
+
+    const cleanBtn = doc.createElement('button');
+    cleanBtn.type = 'button';
+    cleanBtn.textContent = 'Clean Up Formula';
+    cleanBtn.title = 'Remove invisible characters, straighten curly quotes, and re-analyze';
+    cleanBtn.style.cssText = STYLE_WARNING_BUTTON;
+    cleanBtn.addEventListener('click', () => {
+      const ta = doc.getElementById('CalculatedFormula');
+      if (!ta) return;
+      ta.value = FormulaEngine.cleanPasteArtifacts(ta.value);
+      FormulaUI.run(doc);
+    });
+    box.appendChild(doc.createElement('br'));
+    box.appendChild(cleanBtn);
+
+    return box;
   }
 
   // Render an evaluation result as display text
@@ -228,7 +284,7 @@ export default class FormulaUI {
     return formulaTextarea ? (formulaTextarea.value || 'No formula content found.') : 'Formula editor not found.';
   }
 
-  static displayDataStructure(ast, doc) {
+  static displayDataStructure(ast, doc, pasteArtifacts = []) {
     const debugOutput = doc.getElementById('debugOutput');
     if (!debugOutput) return;
 
@@ -238,6 +294,10 @@ export default class FormulaUI {
     debugOutput.innerHTML = '';
     const container = doc.createElement('div');
     container.style.cssText = STYLE_CONTAINER;
+
+    if (pasteArtifacts.length > 0) {
+      container.appendChild(FormulaUI.buildPasteArtifactWarning(doc, pasteArtifacts));
+    }
 
     // Static checks that need no field values: wrong argument counts and
     // unsupported functions are flagged at Analyze time, not at Calculate

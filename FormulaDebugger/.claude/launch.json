@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "formula-debugger",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8898"],
+      "port": 8898
+    }
+  ]
+}

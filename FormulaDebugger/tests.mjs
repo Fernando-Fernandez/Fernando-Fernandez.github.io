@@ -532,5 +532,28 @@ check('extra closing parenthesis still reports a clear error', () => {
   eq(message.includes("without matching '('"), true);
 });
 
+check('collectPasteArtifacts reports invisible chars and curly quotes', () => {
+  const formula = 'IF(​ISPICKVAL(Rating, “Hot”), 1, 0)';
+  const artifacts = FormulaEngine.collectPasteArtifacts(formula);
+  eq(artifacts.length, 3);
+  eq(artifacts[0], { type: 'invisible', char: '​', name: 'zero-width space', codePoint: 'U+200B', position: 4 });
+  eq(artifacts[1].type, 'smartQuote');
+  eq(artifacts[1].codePoint, 'U+201C');
+  // positions are 1-based, sorted, and index the raw string (the invisible
+  // character itself occupies position 4, shifting the quotes)
+  eq(artifacts.map(a => a.position), [4, 23, 27]);
+});
+check('collectPasteArtifacts is empty for clean formulas', () => {
+  eq(FormulaEngine.collectPasteArtifacts('IF(Amount > 1, "a", \'b\')'), []);
+});
+check('cleanPasteArtifacts strips invisibles and straightens quotes', () => {
+  const dirty = 'IF(​⁠ISPICKVAL(Rating, “Hot”), ‘a’, ﻿0)';
+  const cleaned = FormulaEngine.cleanPasteArtifacts(dirty);
+  eq(cleaned, 'IF(ISPICKVAL(Rating, "Hot"), \'a\', 0)');
+  eq(FormulaEngine.collectPasteArtifacts(cleaned), []);
+  eq(FormulaEngine.rebuild(FormulaEngine.parse(cleaned)),
+    FormulaEngine.rebuild(FormulaEngine.parse(dirty)));
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
