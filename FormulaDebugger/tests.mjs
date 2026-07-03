@@ -455,9 +455,35 @@ check('generator clock follows the TODAY() test value', () => {
   // produces the same value and is deduplicated into the boundary row)
   eq(vals.includes(localIso(today)), true);
   eq(gen.rows.some(r => r.reason === 'D: same day as value in D < TODAY()'), true);
-  // Month-boundary template proves tier 2 uses the test clock, not the real one
-  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  eq(gen.rows.some(r => r.reason === 'D: first day of this month' && r.values.D === localIso(firstOfMonth)), true);
+  // Month-boundary template proves tier 2 uses the test clock, not the real
+  // one (last day: the first-of-month value collides with the mined boundary
+  // row on Jan 1 and is deduplicated into it)
+  const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  eq(gen.rows.some(r => r.reason === 'D: last day of this month' && r.values.D === localIso(endOfMonth)), true);
+});
+check('date-only strings parse as local dates, not UTC', () => {
+  // new Date('YYYY-MM-DD') is UTC midnight, which is the previous day in
+  // timezones west of UTC; the engine must treat these as local dates
+  eq(evalFormula("DAY(DATEVALUE('2026-01-01'))"), 1);
+  eq(evalFormula('DAY(TODAY())', { 'TODAY()': '2026-01-01' }), 1);
+  eq(evalFormula('MONTH(TODAY())', { 'TODAY()': '2026-01-01' }), 1);
+  eq(evalFormula('YEAR(TODAY())', { 'TODAY()': '2026-01-01' }), 2026);
+});
+check('matrix evaluation applies the calculator type checks', () => {
+  const res = FormulaUI.evaluateScenarioResult(
+    FormulaEngine.parse('CloseDate > Amount'),
+    { CloseDate: '2026-01-01', Amount: '5' },
+    { CloseDate: 'Date', Amount: 'Number' });
+  eq(res, 'Type error: Date > Number');
+  eq(FormulaUI.evaluateScenarioResult(FormulaEngine.parse('Amount > 5'), { Amount: '7' }, { Amount: 'Number' }), 'true');
+  eq(FormulaUI.evaluateScenarioResult(FormulaEngine.parse('1 / Amount'), { Amount: '0' }, { Amount: 'Number' }), 'Error: Division by zero');
+});
+check('DateTime candidates are valid datetime-local values', () => {
+  const gen = generateScenarios(FormulaEngine.parse('D + 1'), { D: 'DateTime' }, {}, { now: '2026-02-15T12:00:00' });
+  const vals = gen.rows.map(r => r.values.D).filter(v => typeof v === 'string' && v !== '');
+  eq(vals.length > 0, true);
+  eq(vals.every(v => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v)), true);
+  eq(vals.includes('2026-02-15T23:59'), true); // end-of-day boundary
 });
 check('generated rows surface both guarded and unguarded cases', () => {
   const ast = FormulaEngine.parse("IF(Amount = 0, 'none', 100 / Amount)");

@@ -665,6 +665,15 @@ export default class FormulaEngine {
         const d = new Date(yyyy, mm - 1, dd);
         if (!isNaN(d.getTime())) return d;
       }
+      // ISO date-only strings must be parsed as LOCAL dates; new Date('YYYY-MM-DD')
+      // treats them as UTC midnight, which shifts the date back a day in
+      // timezones west of UTC (date inputs produce exactly this format)
+      const isoDateOnly = /^(\d{4})-(\d{2})-(\d{2})$/;
+      const mIso = s.match(isoDateOnly);
+      if (mIso) {
+        const d = new Date(parseInt(mIso[1], 10), parseInt(mIso[2], 10) - 1, parseInt(mIso[3], 10));
+        if (!isNaN(d.getTime())) return d;
+      }
       if (this.isDateString(s)) {
         // Normalize space separator to 'T' for consistent parsing for ISO-like strings
         const normalized = s.replace(/^(\d{4}-\d{2}-\d{2})\s+/, '$1T');
@@ -1264,7 +1273,7 @@ export default class FormulaEngine {
             if (variables && variables['NOW()'] !== undefined) {
               const tv = variables['NOW()'];
               if (tv === '') return new Date();
-              const pd = new Date(tv);
+              const pd = this.toDate(tv) || new Date(tv);
               if (isNaN(pd.getTime())) throw new Error('Invalid date format for NOW() test value');
               return this.toIsoZSeconds(pd);
             }
@@ -1293,7 +1302,7 @@ export default class FormulaEngine {
                 const n = new Date();
                 return new Date(n.getFullYear(), n.getMonth(), n.getDate());
               }
-              const pd = new Date(tv);
+              const pd = this.toDate(tv) || new Date(tv);
               if (isNaN(pd.getTime())) throw new Error('Invalid date format for TODAY() test value');
               return new Date(pd.getFullYear(), pd.getMonth(), pd.getDate());
             }

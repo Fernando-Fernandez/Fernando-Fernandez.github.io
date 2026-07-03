@@ -54,6 +54,22 @@ function dateCandidates(now) {
   ];
 }
 
+// DateTime candidates carry a time component so they are valid values for
+// datetime-local inputs, and probe start/end-of-day boundaries where < and
+// <= comparisons flip
+function dateTimeCandidates(now) {
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return [
+    { value: `${isoDate(now)}T00:00`, reason: 'start of today' },
+    { value: `${isoDate(now)}T23:59`, reason: 'end of today' },
+    { value: `${isoDate(addDays(now, -1))}T23:59`, reason: 'end of yesterday' },
+    { value: `${isoDate(addDays(now, 1))}T00:00`, reason: 'start of tomorrow' },
+    { value: `${isoDate(endOfMonth)}T23:59`, reason: 'end of this month' },
+    { value: `${now.getFullYear()}-12-31T23:59`, reason: 'end of year' },
+    { value: `${nearestLeapDay(now)}T12:00`, reason: 'leap day' },
+  ];
+}
+
 // Tier 1: static per-type adversarial values
 function typeCandidates(type, now) {
   switch (type) {
@@ -72,8 +88,9 @@ function typeCandidates(type, now) {
         { value: false, reason: 'false' },
       ];
     case 'Date':
-    case 'DateTime':
       return dateCandidates(now);
+    case 'DateTime':
+      return dateTimeCandidates(now);
     case 'Text':
       return [
         { value: '', reason: 'empty text' },

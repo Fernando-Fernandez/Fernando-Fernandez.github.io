@@ -95,6 +95,27 @@ export default class FormulaUI {
     );
   }
 
+  // Evaluate one scenario with the same gate the calculator applies:
+  // comparison/arithmetic type checks first, then calculate. Type problems
+  // and runtime errors come back as display strings.
+  static evaluateScenarioResult(ast, values, types) {
+    const coerced = FormulaUI.coerceVariables(values, types);
+    try {
+      FormulaEngine.annotateTypes(ast, coerced, types);
+      const typeErrors = [
+        ...FormulaEngine.collectComparisonTypeErrors(ast),
+        ...FormulaEngine.collectArithmeticTypeErrors(ast),
+      ];
+      if (typeErrors.length > 0) {
+        const e = typeErrors[0];
+        return `Type error: ${e.leftType} ${e.operator} ${e.rightType}`;
+      }
+      return FormulaUI.formatValue(FormulaEngine.calculate(ast, coerced, new Map()));
+    } catch (e) {
+      return `Error: ${e.message}`;
+    }
+  }
+
   // Build a Mermaid diagram string for the AST
   static toMermaid(ast, { fenced = true, results = null } = {}) {
     const lines = ['graph LR'];
@@ -492,7 +513,15 @@ export default class FormulaUI {
         } else {
           if (nullChk) nullChk.checked = false;
           input.disabled = false;
-          input.value = v === undefined ? '' : String(v);
+          let text = v === undefined ? '' : String(v);
+          // Native date/time inputs silently reject mismatched formats,
+          // leaving the control blank; adapt the value to the input type
+          if (input.type === 'datetime-local' && /^\d{4}-\d{2}-\d{2}$/.test(text)) {
+            text = `${text}T00:00`;
+          } else if (input.type === 'date' && /^\d{4}-\d{2}-\d{2}T/.test(text)) {
+            text = text.slice(0, 10);
+          }
+          input.value = text;
         }
       }
       FormulaUI.calculateAndDisplay(ast, doc);
@@ -507,20 +536,11 @@ export default class FormulaUI {
 
       const { values: currentValues, types } = FormulaUI.getVariableValues(ast, doc);
 
-      // Evaluate every row; errors are results too
+      // Evaluate every row; type problems and errors are results too
       const groups = new Map(); // formatted result -> group index
       for (const row of rows) {
-        const merged = { ...currentValues, ...row.values };
-        const coerced = FormulaUI.coerceVariables(merged, types);
-        let result;
-        try {
-          FormulaEngine.annotateTypes(ast, coerced, types);
-          result = FormulaUI.formatValue(FormulaEngine.calculate(ast, coerced, new Map()));
-        } catch (e) {
-          result = `Error: ${e.message}`;
-        }
-        row.result = result;
-        if (!groups.has(result)) groups.set(result, groups.size);
+        row.result = FormulaUI.evaluateScenarioResult(ast, { ...currentValues, ...row.values }, types);
+        if (!groups.has(row.result)) groups.set(row.result, groups.size);
       }
       // Leave the AST annotated for the editor's own values, not the last row's
       try {
