@@ -1,3 +1,13 @@
+// Functions that need org/record context or Visualforce and cannot be
+// simulated client-side. The UI renders each occurrence as a stand-in input:
+// the entered value becomes the function's return value during testing.
+//
+// Still to validate against a real org:
+// - TIMENOW needs to return a time instead of a datetime
+// - ROUND/CEILING/FLOOR/MCEILING/MFLOOR were aligned to documented Salesforce
+//   semantics (half away from zero; CEILING away from zero when negative;
+//   FLOOR toward zero; MCEILING/MFLOOR single-argument) - spot-check in an org
+// - URLENCODE encodes spaces as + (Java URLEncoder style); verify edge characters
 export const PENDING_FUNCTIONS = [
   'CURRENCYRATE',
   'GETRECORDIDS',
