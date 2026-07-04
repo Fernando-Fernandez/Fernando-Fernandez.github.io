@@ -1,15 +1,13 @@
+import { stripInvisibleChars } from './invisible_chars.js';
+
 export default class Tokenizer {
     // Lightweight regex-based tokenizer for Salesforce formulas.
     // Order matters: multi-character operators must precede their prefixes
     // (&& before &, == before =, <= before <).
-    static INVISIBLE_CHAR_PATTERN = /[\u00AD\u034F\u061C\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\uFEFF]/g;
-
+    // Invisible copy-paste characters are stripped by sanitizeInput before
+    // tokenization, so no token pattern needs to match them.
     static TOKEN_PATTERNS = [
         [/^\s+/, 'WHITESPACE'],
-        // Invisible characters that ride along when formulas are copied from
-        // web pages or documents (soft hyphen, zero-width spaces/joiners,
-        // directional marks, word joiner, BOM) — treat as whitespace
-        [/^[\u00AD\u200B-\u200F\u2060\uFEFF]+/, 'WHITESPACE'],
         [/^"[^"]*"/, 'DOUBLE_QUOTE_STRING'],
         // Curly ("smart") quotes from copy-pasted documents delimit strings
         // like their straight counterparts
@@ -44,7 +42,7 @@ export default class Tokenizer {
     ];
 
     static sanitizeInput(inputString = '') {
-        return String(inputString || '').replace(Tokenizer.INVISIBLE_CHAR_PATTERN, '');
+        return stripInvisibleChars(inputString);
     }
 
     initialize(inputString) {

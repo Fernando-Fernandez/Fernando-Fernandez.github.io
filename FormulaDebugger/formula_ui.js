@@ -2,7 +2,7 @@ import FormulaEngine from './formula_engine.js';
 import { openSvgDiagram as openSvgDiagramWindow } from './formula_svg.js';
 import { explainFormula } from './formula_explain.js';
 import { generateScenarios } from './formula_matrix.js';
-import { isPendingFunction, pendingFunctionDefaultValue } from './pending_functions.js';
+import { isPendingFunction } from './pending_functions.js';
 
 // CSS style constants
 const STYLE_ERROR_BOX = 'color: red; padding: 10px; background: #ffe8e8; border: 1px solid #f44336; border-radius: 4px;';
@@ -441,6 +441,14 @@ export default class FormulaUI {
           helperText.style.cssText = STYLE_NOW_HELPER;
           helperText.textContent = 'Leave empty to use today\'s date';
           fieldDiv.appendChild(helperText);
+        } else if (isPendingFunction(variable)) {
+          // Stand-in input for a function that needs org data this tool
+          // cannot access: whatever is entered here becomes its return value
+          input.placeholder = `Return value for ${variable}(...)`;
+          const helperText = doc.createElement('div');
+          helperText.style.cssText = STYLE_NOW_HELPER;
+          helperText.textContent = `${variable} needs org data this tool can't access — enter the value it should return`;
+          fieldDiv.appendChild(helperText);
         }
 
         varsList.appendChild(fieldDiv);
@@ -698,22 +706,61 @@ export default class FormulaUI {
     return section;
   }
 
+  // Standalone viewer page. Only the mermaid library itself loads from a CDN;
+  // the formula and diagram never leave the browser (the previous mermaid.ink
+  // approach sent the encoded formula to a third-party service, contradicting
+  // the page's privacy note).
+  static buildMermaidViewerHtml(mermaidSrc) {
+    const escaped = FormulaEngine.htmlEncode(mermaidSrc);
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Formula Diagram (Mermaid)</title>
+  <style>
+    body { margin: 0; font-family: sans-serif; background: #f9fafb; color: #1f2933; }
+    header { padding: 10px 16px; font-size: 13px; color: #57606a; border-bottom: 1px solid #d0d7de; background: #fff; }
+    main { padding: 16px; overflow: auto; }
+    pre.mermaid { font-family: ui-monospace, monospace; font-size: 12px; }
+    #loadError { display: none; margin-top: 12px; padding: 10px; background: #fff8e6; border: 1px solid #d4a72c; border-radius: 4px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <header>Rendered locally in your browser — the formula is not sent to any server. Only the diagram library loads from a CDN.</header>
+  <main>
+    <pre class="mermaid">${escaped}</pre>
+    <div id="loadError">Could not load the diagram library (offline or CDN blocked). The Mermaid definition is shown above as text — paste it into any Mermaid renderer.</div>
+  </main>
+  <script type="module">
+    try {
+      const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+      mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' });
+      await mermaid.run();
+    } catch (e) {
+      document.getElementById('loadError').style.display = 'block';
+    }
+  </script>
+</body>
+</html>`;
+  }
+
   static openMermaidDiagram(ast) {
     if (!ast) return;
     try {
-      const mermaid = FormulaUI.toMermaid(ast, { fenced: false });
-      const toB64 = (str) => {
-        try { return btoa(unescape(encodeURIComponent(str))); }
-        catch (_) { return btoa(str); }
-      };
-      const encoded = toB64(mermaid);
-      const url = `https://mermaid.ink/svg/${encoded}`;
-      if (typeof window !== 'undefined' && window.open) {
-        const w = window.open(url, '_blank');
-        if (!w) console.log('Mermaid diagram URL:', url);
-      } else {
-        console.log('Mermaid diagram URL:', url);
+      const mermaidSrc = FormulaUI.toMermaid(ast, { fenced: false });
+      if (typeof window === 'undefined' || !window.open) {
+        console.log('Mermaid definition:\n' + mermaidSrc);
+        return;
       }
+      const w = window.open('', '_blank');
+      if (!w) {
+        console.log('Popup blocked; Mermaid definition:\n' + mermaidSrc);
+        return;
+      }
+      try { w.opener = null; } catch (_) {} // guard against reverse tabnabbing
+      w.document.open();
+      w.document.write(FormulaUI.buildMermaidViewerHtml(mermaidSrc));
+      w.document.close();
     } catch (e) {
       console.error('Unable to open Mermaid diagram:', e);
     }

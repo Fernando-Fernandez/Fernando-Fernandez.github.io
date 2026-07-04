@@ -1,4 +1,5 @@
 import Parser, { OPERATOR_TYPE, LITERAL_TYPE } from './parser.js';
+import { invisibleCharRegex, invisibleCharName, stripInvisibleChars } from './invisible_chars.js';
 import {
   isPendingFunction,
   pendingFunctionVariableName,
@@ -708,33 +709,23 @@ export default class FormulaEngine {
   }
   static isDate(value) { return value instanceof Date; }
 
-  // Copy-paste artifact detection. The tokenizer tolerates these characters
-  // (see TOKEN_PATTERNS), but Salesforce itself rejects them, so the UI warns
-  // and offers a cleanup. Keep the character sets in sync with the tokenizer.
-  static INVISIBLE_CHAR_NAMES = {
-    '\u00AD': 'soft hyphen',
-    '\u200B': 'zero-width space',
-    '\u200C': 'zero-width non-joiner',
-    '\u200D': 'zero-width joiner',
-    '\u200E': 'left-to-right mark',
-    '\u200F': 'right-to-left mark',
-    '\u2060': 'word joiner',
-    '\uFEFF': 'byte order mark',
-  };
-
+  // Copy-paste artifact detection. The tokenizer strips these characters
+  // before tokenizing, but Salesforce itself rejects them, so the UI warns
+  // and offers a cleanup. The character set lives in invisible_chars.js,
+  // shared with the tokenizer so warn/strip/clean always agree.
   // Returns [{ type: 'invisible'|'smartQuote', char, name, codePoint, position }]
-  // with 1-based positions, matching tokenizer error messages
+  // with 1-based positions into the raw (unsanitized) formula text
   static collectPasteArtifacts(formula) {
     const found = [];
     const s = String(formula ?? '');
     const codePointOf = (ch) => `U+${ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}`;
-    const invisible = /[\u00AD\u200B-\u200F\u2060\uFEFF]/g;
+    const invisible = invisibleCharRegex();
     let m;
     while ((m = invisible.exec(s)) !== null) {
       found.push({
         type: 'invisible',
         char: m[0],
-        name: FormulaEngine.INVISIBLE_CHAR_NAMES[m[0]] || 'invisible character',
+        name: invisibleCharName(m[0]),
         codePoint: codePointOf(m[0]),
         position: m.index + 1,
       });
@@ -755,8 +746,7 @@ export default class FormulaEngine {
   // Remove invisible characters and straighten curly quotes so the formula
   // can be pasted back into Salesforce
   static cleanPasteArtifacts(formula) {
-    return String(formula ?? '')
-      .replace(/[\u00AD\u200B-\u200F\u2060\uFEFF]/g, '')
+    return stripInvisibleChars(formula)
       .replace(/[“”]/g, '"')
       .replace(/[‘’]/g, "'");
   }

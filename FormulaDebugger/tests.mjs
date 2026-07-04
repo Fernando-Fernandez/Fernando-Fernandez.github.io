@@ -4,6 +4,7 @@ import FormulaEngine from './formula_engine.js';
 import FormulaUI from './formula_ui.js';
 import { explainFormula } from './formula_explain.js';
 import { generateScenarios } from './formula_matrix.js';
+import { INVISIBLE_CHAR_NAMES } from './invisible_chars.js';
 import { PENDING_FUNCTIONS } from './pending_functions.js';
 import fs from 'node:fs';
 
@@ -345,20 +346,35 @@ check('flags unsupported functions', () => {
 check('pending functions are exempt from unsupported errors', () => {
   eq(arityErrors('VLOOKUP(A, B, C)').length, 0);
 });
-check('pendingFunctions.txt matches exported pending function list', () => {
-  const text = fs.readFileSync(new URL('./pendingFunctions.txt', import.meta.url), 'utf8');
-  const names = [];
-  let started = false;
-  for (const line of text.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!started) {
-      if (trimmed.startsWith('Not implemented')) started = true;
-      continue;
-    }
-    if (!trimmed) break;
-    names.push(trimmed);
+check('pending functions are not in the arity table (they are stand-ins)', () => {
+  for (const name of PENDING_FUNCTIONS) {
+    eq(FormulaEngine.FUNCTION_ARITY[name] === undefined, true);
   }
-  eq(names, PENDING_FUNCTIONS);
+});
+
+// --- Invisible-character set parity (shared invisible_chars.js module) ---
+check('every stripped character is also warned about and cleaned', () => {
+  // All named characters plus unnamed ones inside the ranges (U+206A, U+206F)
+  const chars = [...Object.keys(INVISIBLE_CHAR_NAMES), String.fromCharCode(0x206A), String.fromCharCode(0x206F)];
+  for (const ch of chars) {
+    const dirty = `Amount ${ch}> 5`;
+    FormulaEngine.parse(dirty); // must tokenize (stripped by sanitizeInput)
+    const artifacts = FormulaEngine.collectPasteArtifacts(dirty);
+    if (artifacts.length !== 1) throw new Error(`no warning for U+${ch.codePointAt(0).toString(16)}`);
+    if (FormulaEngine.cleanPasteArtifacts(dirty).includes(ch)) {
+      throw new Error(`clean-up missed U+${ch.codePointAt(0).toString(16)}`);
+    }
+  }
+});
+
+// --- Local Mermaid viewer ---
+check('Mermaid viewer renders locally, not via mermaid.ink', () => {
+  const html = FormulaUI.buildMermaidViewerHtml('graph LR\nn1["IF(A > 1, \\"x\\", \\"y\\")"]');
+  eq(html.includes('mermaid.ink'), false);
+  eq(html.includes('cdn.jsdelivr.net/npm/mermaid@11'), true);
+  eq(html.includes("securityLevel: 'strict'"), true);
+  // Diagram definition is HTML-escaped into the page
+  eq(html.includes('n1[&quot;IF(A &gt; 1'), true);
 });
 check('finds errors nested inside expressions', () => {
   const errs = arityErrors("IF(LEN(Name, 2) > 0, TRIM(), 'x')");
